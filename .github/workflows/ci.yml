@@ -20,10 +20,12 @@ jobs:
     name: fmt / vet / test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          # Latest patch release so govulncheck sees a fixed stdlib.
+          go-version: stable
+          check-latest: true
       - name: gofmt
         run: |
           out="$(gofmt -l .)"
@@ -41,10 +43,12 @@ jobs:
   govulncheck:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          # Latest patch release so govulncheck sees a fixed stdlib.
+          go-version: stable
+          check-latest: true
       - name: govulncheck
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
@@ -61,12 +65,14 @@ jobs:
             goarch: amd64
             ext: ".exe"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          # Latest patch release so govulncheck sees a fixed stdlib.
+          go-version: stable
+          check-latest: true
       - name: build
         env:
           GOOS: ${{ matrix.goos }}
@@ -75,7 +81,7 @@ jobs:
           version="$(git describe --tags --always --dirty)"
           go build -trimpath -ldflags "-s -w -X main.version=${version}" \
             -o "dist/perfectimage-${GOOS}-${GOARCH}${{ matrix.ext }}" ./cmd/perfectimage
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: perfectimage-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/
@@ -85,7 +91,7 @@ jobs:
     name: packer validate (catalog)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: find templates
         id: find
         run: |
