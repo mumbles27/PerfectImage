@@ -1,0 +1,20 @@
+{{define "head"}}<link rel="stylesheet" href="/auth/static/auth.css">{{end}}
+{{define "content"}}
+<div class="auth-box">
+  <h1>Two-factor authentication</h1>
+  <p class="muted">Enter the 6-digit code from your authenticator app, or one of your recovery codes.</p>
+  {{with .Data.Error}}<div class="flash flash-err" role="alert">{{.}}</div>{{end}}
+  <form method="post" action="/login/mfa" class="stack">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <input type="hidden" name="next" value="{{.Data.Next}}">
+    <label>Code
+      <input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="24" required autofocus>
+    </label>
+    <button type="submit">Verify</button>
+  </form>
+  <form method="post" action="/logout" class="inline">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <p><button type="submit" class="secondary">Cancel</button></p>
+  </form>
+</div>
+{{end}}

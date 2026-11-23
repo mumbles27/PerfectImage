@@ -1,0 +1,38 @@
+{{define "head"}}<link rel="stylesheet" href="/auth/static/auth.css"><script src="/auth/static/auth.js" defer></script>{{end}}
+{{define "content"}}
+{{$d := .Data}}{{$csrf := .CSRFToken}}
+<h1>Users</h1>
+{{with $d.Notice}}<div class="flash flash-ok" role="status">{{.}}</div>{{end}}
+{{with $d.Error}}<div class="flash flash-err" role="alert">{{.}}</div>{{end}}
+{{if $d.OneTime}}<div class="panel"><p>One-time password for <strong>{{$d.Created.Username}}</strong>:</p><p class="secret">{{$d.OneTime}}</p></div>{{end}}
+<table class="table">
+  <thead><tr><th>Username</th><th>Name</th><th>Source</th><th>Roles</th><th>MFA</th><th>Status</th><th>Last sign-in</th></tr></thead>
+  <tbody>
+  {{range $d.Users}}
+  <tr>
+    <td><a href="/settings/users/{{.ID}}">{{.Username}}</a></td>
+    <td>{{.DisplayName}}</td>
+    <td>{{.Source}}</td>
+    <td>{{range .Roles}}<span class="tag">{{.}}</span>{{end}}</td>
+    <td>{{if .TOTPEnabled}}<span class="tag tag-ok">on</span>{{else}}<span class="muted">off</span>{{end}}</td>
+    <td>{{if .Disabled}}<span class="tag tag-bad">disabled</span>{{else if .Locked $d.Now}}<span class="tag tag-warn">locked</span>{{else if .MustChangePassword}}<span class="tag tag-warn">password change pending</span>{{else}}<span class="tag tag-ok">active</span>{{end}}</td>
+    <td>{{fmtTime .LastLoginAt}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+
+<h2>Create local user</h2>
+<form method="post" action="/settings/users" class="panel stack">
+  <input type="hidden" name="csrf_token" value="{{$csrf}}">
+  <div class="row">
+    <label>Username <input name="username" required maxlength="128" autocomplete="off"></label>
+    <label>Display name <input name="display_name" maxlength="128"></label>
+    <label>Email <input type="email" name="email" maxlength="254"></label>
+  </div>
+  <p class="muted">Roles</p>
+  <div class="checks">{{range $d.RoleOptions}}<label title="{{.Description}}"><input type="checkbox" name="roles" value="{{.Value}}"> {{.Label}}</label>{{end}}</div>
+  <p class="muted">A one-time password is generated; the user must change it at first sign-in.</p>
+  <button type="submit">Create user</button>
+</form>
+{{end}}

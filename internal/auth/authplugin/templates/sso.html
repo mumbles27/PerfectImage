@@ -1,0 +1,118 @@
+{{define "head"}}<link rel="stylesheet" href="/auth/static/auth.css"><script src="/auth/static/auth.js" defer></script>{{end}}
+{{define "content"}}
+{{$d := .Data}}{{$csrf := .CSRFToken}}
+<h1>Single sign-on</h1>
+{{with $d.Notice}}<div class="flash flash-ok" role="status">{{.}}</div>{{end}}
+{{with $d.Error}}<div class="flash flash-err" role="alert">{{.}}</div>{{end}}
+<p class="muted">Secrets (client secrets, bind passwords) are encrypted at rest and never displayed. Leave a secret field empty to keep the stored value.
+Role mappings use one line per group: <code>group =&gt; Role, Role</code>. Roles of SSO users are re-synced at each sign-in.</p>
+
+<h2>OpenID Connect providers</h2>
+{{range $d.Providers}}
+<details class="panel">
+  <summary>{{.DisplayName}} <code>{{.Name}}</code> {{if .Enabled}}<span class="tag tag-ok">enabled</span>{{else}}<span class="tag">disabled</span>{{end}}</summary>
+  <p class="muted">Redirect URI to register at the IdP: <code>{{.CallbackURL}}</code></p>
+  <form method="post" action="/settings/sso/oidc" class="stack">
+    <input type="hidden" name="csrf_token" value="{{$csrf}}">
+    <input type="hidden" name="name" value="{{.Name}}">
+    <div class="row">
+      <label>Display name <input name="display_name" value="{{.DisplayName}}" required></label>
+      <label>Issuer URL <input name="issuer" value="{{.Issuer}}" size="40" required></label>
+    </div>
+    <div class="row">
+      <label>Client ID <input name="client_id" value="{{.ClientID}}" required></label>
+      <label>Client secret <input type="password" name="client_secret" autocomplete="new-password" placeholder="{{if .HasSecret}}(stored){{else}}(none: public client){{end}}"></label>
+    </div>
+    <div class="row">
+      <label>Scopes <input name="scopes" value="{{.Scopes}}" size="40"></label>
+      <label>Groups claim <input name="groups_claim" value="{{.GroupsClaim}}"></label>
+      <label>Default roles <input name="default_roles" value="{{.DefaultRoles}}"></label>
+    </div>
+    <label>Group → role mapping <textarea name="role_map">{{.RoleMap}}</textarea></label>
+    <div class="row">
+      <label class="inline"><input type="checkbox" name="jit" value="1"{{if .JIT}} checked{{end}}> Just-in-time provisioning</label>
+      <label class="inline"><input type="checkbox" name="enabled" value="1"{{if .Enabled}} checked{{end}}> Enabled</label>
+    </div>
+    <div class="actions"><button type="submit">Save</button>
+      <button type="button" class="secondary" hx-post="/settings/sso/oidc/{{.Name}}/test" hx-target="#oidc-test-{{.Name}}" hx-swap="innerHTML">Test discovery</button>
+      <span id="oidc-test-{{.Name}}" aria-live="polite"></span>
+    </div>
+  </form>
+  <form method="post" action="/settings/sso/oidc/{{.Name}}/delete" data-confirm="Delete this provider? Linked users can no longer sign in through it.">
+    <input type="hidden" name="csrf_token" value="{{$csrf}}"><p><button type="submit" class="danger">Delete provider</button></p>
+  </form>
+</details>
+{{else}}<p class="muted">No providers configured.</p>{{end}}
+
+<details class="panel">
+  <summary>Add provider</summary>
+  <p class="muted">Redirect URI: <code>{{$d.NewCallback}}</code> (with your provider name). Set <code>server.public_url</code> so this matches the URL users browse to.</p>
+  <form method="post" action="/settings/sso/oidc" class="stack">
+    <input type="hidden" name="csrf_token" value="{{$csrf}}">
+    <div class="row">
+      <label>Name (slug) <input name="name" required maxlength="32" placeholder="entra"></label>
+      <label>Display name <input name="display_name" placeholder="Microsoft Entra ID"></label>
+      <label>Issuer URL <input name="issuer" size="40" required placeholder="https://login.example.com/realms/main"></label>
+    </div>
+    <div class="row">
+      <label>Client ID <input name="client_id" required></label>
+      <label>Client secret <input type="password" name="client_secret" autocomplete="new-password"></label>
+    </div>
+    <div class="row">
+      <label>Scopes <input name="scopes" value="openid profile email" size="40"></label>
+      <label>Groups claim <input name="groups_claim" value="groups"></label>
+      <label>Default roles <input name="default_roles" placeholder="Viewer"></label>
+    </div>
+    <label>Group → role mapping <textarea name="role_map" placeholder="perfectimage-admins => Admin"></textarea></label>
+    <div class="row">
+      <label class="inline"><input type="checkbox" name="jit" value="1" checked> Just-in-time provisioning</label>
+      <label class="inline"><input type="checkbox" name="enabled" value="1" checked> Enabled</label>
+    </div>
+    <button type="submit">Add provider</button>
+  </form>
+</details>
+
+<h2 id="ldap">LDAP / Active Directory</h2>
+{{with $d.LDAP}}
+<form method="post" action="/settings/sso/ldap" class="panel stack">
+  <input type="hidden" name="csrf_token" value="{{$csrf}}">
+  <label class="inline"><input type="checkbox" name="enabled" value="1"{{if .Enabled}} checked{{end}}> Enable LDAP sign-in</label>
+  <div class="row">
+    <label>URL <input name="url" value="{{.URL}}" size="40" placeholder="ldaps://dc1.example.com:636"></label>
+    <label class="inline"><input type="checkbox" name="start_tls" value="1"{{if .StartTLS}} checked{{end}}> StartTLS (for ldap://)</label>
+    <label>TLS server name <input name="server_name" value="{{.ServerName}}" placeholder="(from URL)"></label>
+    <label>Timeout (s) <input type="number" name="timeout" min="1" max="120" value="{{$d.LDAPTimeout}}"></label>
+  </div>
+  <label>CA certificate (PEM, optional) <textarea name="ca_pem">{{.CAPEM}}</textarea></label>
+  <div class="row">
+    <label>Bind DN <input name="bind_dn" value="{{.BindDN}}" size="40" placeholder="CN=svc-perfectimage,OU=Service,DC=example,DC=com"></label>
+    <label>Bind password <input type="password" name="bind_password" autocomplete="new-password" placeholder="{{if .HasPassword}}(stored){{else}}(none){{end}}"></label>
+    <label class="inline"><input type="checkbox" name="clear_password" value="1"> Clear stored password</label>
+  </div>
+  <div class="row">
+    <label>User base DN <input name="user_base_dn" value="{{.UserBaseDN}}" size="40"></label>
+    <label>User filter <input name="user_filter" value="{{.UserFilter}}" size="45"></label>
+  </div>
+  <div class="row">
+    <label>Username attribute <input name="username_attr" value="{{.UsernameAttr}}"></label>
+    <label>Display name attribute <input name="display_name_attr" value="{{.DisplayNameAttr}}"></label>
+    <label>Email attribute <input name="email_attr" value="{{.EmailAttr}}"></label>
+  </div>
+  <div class="row">
+    <label>Group base DN <input name="group_base_dn" value="{{.GroupBaseDN}}" size="40" placeholder="(user base DN)"></label>
+    <label>Group filter <input name="group_filter" value="{{.GroupFilter}}" size="45"></label>
+    <label class="inline"><input type="checkbox" name="ad_matching_rule" value="1"{{if .ADMatchingRule}} checked{{end}}> AD nested groups (IN_CHAIN)</label>
+  </div>
+  <div class="row"><label>Default roles <input name="default_roles" value="{{$d.LDAPDefaults}}"></label></div>
+  <label>Group (DN or CN) → role mapping <textarea name="role_map" placeholder="CN=PI-Admins,OU=Groups,DC=example,DC=com => Admin">{{$d.LDAPRoleMap}}</textarea></label>
+  <button type="submit">Save LDAP settings</button>
+</form>
+{{end}}
+<form class="panel row" hx-post="/settings/sso/ldap/test" hx-target="#ldap-test" hx-swap="innerHTML">
+  <label>Test user (optional) <input name="test_username" autocomplete="off"></label>
+  <button type="submit" class="secondary">Test connection</button>
+  <span id="ldap-test" aria-live="polite"></span>
+</form>
+{{end}}
+
+{{define "test-result"}}<span class="{{if .Data.OK}}test-ok{{else}}test-bad{{end}}">{{.Data.Message}}</span>{{end}}

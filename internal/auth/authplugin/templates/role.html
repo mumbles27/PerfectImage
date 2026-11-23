@@ -1,0 +1,23 @@
+{{define "head"}}<link rel="stylesheet" href="/auth/static/auth.css"><script src="/auth/static/auth.js" defer></script>{{end}}
+{{define "content"}}
+{{$d := .Data}}{{$csrf := .CSRFToken}}{{$r := $d.Role}}
+<p><a href="/settings/roles">&larr; All roles</a></p>
+<h1>{{$r.Name}}{{if $r.Builtin}} <span class="tag">built-in</span>{{end}}</h1>
+{{with $d.Notice}}<div class="flash flash-ok" role="status">{{.}}</div>{{end}}
+{{with $d.Error}}<div class="flash flash-err" role="alert">{{.}}</div>{{end}}
+{{if $r.Builtin}}
+<p>{{$r.Description}}</p>
+<div class="panel checks">{{range $d.RolePerms}}<label title="{{.Description}}"><input type="checkbox" disabled{{if .Checked}} checked{{end}}> {{.Label}}</label>{{end}}</div>
+<p class="muted">Built-in roles cannot be edited or deleted. Create a custom role instead.</p>
+{{else}}
+<form method="post" action="/settings/roles/{{$r.Name}}" class="panel stack">
+  <input type="hidden" name="csrf_token" value="{{$csrf}}">
+  <label>Description <input name="description" value="{{$r.Description}}" maxlength="200" class="wide"></label>
+  <div class="checks">{{range $d.RolePerms}}<label title="{{.Description}}"><input type="checkbox" name="permissions" value="{{.Value}}"{{if .Checked}} checked{{end}}> {{.Label}}</label>{{end}}</div>
+  <button type="submit">Save</button>
+</form>
+<form method="post" action="/settings/roles/{{$r.Name}}/delete" data-confirm="Delete this role? Members lose its permissions.">
+  <input type="hidden" name="csrf_token" value="{{$csrf}}"><button type="submit" class="danger">Delete role</button>
+</form>
+{{end}}
+{{end}}

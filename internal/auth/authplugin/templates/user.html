@@ -1,0 +1,45 @@
+{{define "head"}}<link rel="stylesheet" href="/auth/static/auth.css"><script src="/auth/static/auth.js" defer></script>{{end}}
+{{define "content"}}
+{{$d := .Data}}{{$csrf := .CSRFToken}}{{$u := $d.User}}
+<p><a href="/settings/users">&larr; All users</a></p>
+<h1>{{$u.Username}}</h1>
+{{with $d.Notice}}<div class="flash flash-ok" role="status">{{.}}</div>{{end}}
+{{with $d.Error}}<div class="flash flash-err" role="alert">{{.}}</div>{{end}}
+{{with $d.OneTime}}<div class="panel"><p>One-time password:</p><p class="secret">{{.}}</p></div>{{end}}
+
+<dl class="meta">
+  <dt>Source</dt><dd>{{$u.Source}}</dd>
+  <dt>Status</dt><dd>{{if $u.Disabled}}<span class="tag tag-bad">disabled</span>{{else}}<span class="tag tag-ok">enabled</span>{{end}}
+    {{if $u.Locked $d.Now}}<span class="tag tag-warn">locked until {{fmtTime $u.LockedUntil}}</span>{{end}}
+    {{if $u.FailedLogins}}<span class="muted">{{$u.FailedLogins}} failed attempt(s)</span>{{end}}</dd>
+  <dt>MFA</dt><dd>{{if $u.TOTPEnabled}}enabled{{else}}not enabled{{end}}</dd>
+  <dt>Created</dt><dd>{{fmtTime $u.CreatedAt}}</dd>
+  <dt>Last sign-in</dt><dd>{{fmtTime $u.LastLoginAt}}</dd>
+  <dt>Active sessions</dt><dd>{{len $d.Sessions}}</dd>
+</dl>
+
+<h2>Profile and roles</h2>
+<form method="post" action="/settings/users/{{$u.ID}}" class="panel stack">
+  <input type="hidden" name="csrf_token" value="{{$csrf}}">
+  <div class="row">
+    <label>Display name <input name="display_name" value="{{$u.DisplayName}}" maxlength="128"></label>
+    <label>Email <input type="email" name="email" value="{{$u.Email}}" maxlength="254"></label>
+  </div>
+  <div class="checks">{{range $d.RoleOptions}}<label title="{{.Description}}"><input type="checkbox" name="roles" value="{{.Value}}"{{if .Checked}} checked{{end}}> {{.Label}}</label>{{end}}</div>
+  {{if not $u.IsLocal}}<p class="muted">Roles of SSO/LDAP users are re-synced from group mappings at each sign-in.</p>{{end}}
+  <button type="submit">Save</button>
+</form>
+
+<h2>Actions</h2>
+<div class="panel actions">
+  {{if $u.Locked $d.Now}}<form method="post" action="/settings/users/{{$u.ID}}/unlock"><input type="hidden" name="csrf_token" value="{{$csrf}}"><button type="submit">Unlock</button></form>{{else if $u.FailedLogins}}<form method="post" action="/settings/users/{{$u.ID}}/unlock"><input type="hidden" name="csrf_token" value="{{$csrf}}"><button type="submit" class="secondary">Reset failed attempts</button></form>{{end}}
+  {{if $u.IsLocal}}<form method="post" action="/settings/users/{{$u.ID}}/reset-password" data-confirm="Reset the password and sign the user out?"><input type="hidden" name="csrf_token" value="{{$csrf}}"><button type="submit" class="secondary">Reset password</button></form>{{end}}
+  {{if $u.TOTPEnabled}}<form method="post" action="/settings/users/{{$u.ID}}/reset-mfa" data-confirm="Remove this user's MFA enrollment?"><input type="hidden" name="csrf_token" value="{{$csrf}}"><button type="submit" class="secondary">Reset MFA</button></form>{{end}}
+  <form method="post" action="/settings/users/{{$u.ID}}/revoke-sessions"><input type="hidden" name="csrf_token" value="{{$csrf}}"><button type="submit" class="secondary">Sign out all sessions</button></form>
+  {{if not $d.Self}}
+    {{if $u.Disabled}}<form method="post" action="/settings/users/{{$u.ID}}/enable"><input type="hidden" name="csrf_token" value="{{$csrf}}"><button type="submit">Enable</button></form>
+    {{else}}<form method="post" action="/settings/users/{{$u.ID}}/disable" data-confirm="Disable this account?"><input type="hidden" name="csrf_token" value="{{$csrf}}"><button type="submit" class="danger">Disable</button></form>{{end}}
+    <form method="post" action="/settings/users/{{$u.ID}}/delete" data-confirm="Delete this account permanently?"><input type="hidden" name="csrf_token" value="{{$csrf}}"><button type="submit" class="danger">Delete</button></form>
+  {{end}}
+</div>
+{{end}}

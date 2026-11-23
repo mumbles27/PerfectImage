@@ -1,10 +1,12 @@
 // Package auth defines the authenticated identity (Principal) and the
-// Authenticator / Authorizer seams used by the web layer.
+// Authenticator / Authorizer seams used by the web layer, and implements
+// them in Service: local users (argon2id), DB-backed sessions, synchronizer
+// CSRF tokens, TOTP MFA, roles, API tokens, OIDC and LDAP. The web pages,
+// plugin wiring and the `user reset-admin` command live in the authplugin
+// sub-package (internal/web imports this package). See docs/auth.md.
 //
-// Owned by the auth agent, who will provide the real user store, sessions,
-// login/logout pages, CSRF tokens and the `user reset-admin` command. The
-// foundation ships only these interfaces plus DevAllowAll, which is installed
-// solely when auth.dev_allow_all is set (loopback listeners only).
+// DevAllowAll is installed instead of Service's authenticator only when
+// auth.dev_allow_all is set (loopback listeners only).
 package auth
 
 import (

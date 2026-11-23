@@ -7,13 +7,34 @@ import (
 )
 
 // AuthConfig is owned by the auth agent (internal/auth, internal/rbac).
-// Extend with session, password policy, OIDC/LDAP settings, etc.
+// OIDC/LDAP connections and their secrets live in the database (sealed), not
+// here; see docs/auth.md.
 type AuthConfig struct {
 	// DevAllowAll installs an allow-all authenticator/authorizer. Development
 	// only; rejected unless server.listen is a loopback address.
 	DevAllowAll bool `yaml:"dev_allow_all"`
 	// SessionTTL is the idle session lifetime.
 	SessionTTL time.Duration `yaml:"session_ttl"`
+	// SessionAbsoluteTTL caps a session's lifetime regardless of activity.
+	SessionAbsoluteTTL time.Duration `yaml:"session_absolute_ttl"`
+	// PasswordMinLength is the minimum length of local passwords.
+	PasswordMinLength int `yaml:"password_min_length"`
+	// LockoutThreshold is the number of consecutive failed logins before an
+	// account is locked; 0 uses the default, -1 disables lockout.
+	LockoutThreshold int `yaml:"lockout_threshold"`
+	// LockoutDuration is the first lockout period; it doubles with every
+	// further failure up to LockoutMaxDuration.
+	LockoutDuration    time.Duration `yaml:"lockout_duration"`
+	LockoutMaxDuration time.Duration `yaml:"lockout_max_duration"`
+	// LoginRatePerIP / LoginRatePerUser limit login attempts per minute;
+	// -1 disables the limit.
+	LoginRatePerIP   int `yaml:"login_rate_per_ip"`
+	LoginRatePerUser int `yaml:"login_rate_per_user"`
+	// MFARequiredRoles forces TOTP enrollment for local and LDAP users
+	// holding any of these roles.
+	MFARequiredRoles []string `yaml:"mfa_required_roles"`
+	// APITokenMaxTTL is the longest allowed personal access token lifetime.
+	APITokenMaxTTL time.Duration `yaml:"api_token_max_ttl"`
 }
 
 // ApplyDefaults implements Defaulter.
@@ -21,6 +42,51 @@ func (a *AuthConfig) ApplyDefaults(*Config) {
 	if a.SessionTTL == 0 {
 		a.SessionTTL = 8 * time.Hour
 	}
+	if a.SessionAbsoluteTTL == 0 {
+		a.SessionAbsoluteTTL = max(24*time.Hour, a.SessionTTL)
+	}
+	if a.PasswordMinLength == 0 {
+		a.PasswordMinLength = 12
+	}
+	if a.LockoutThreshold == 0 {
+		a.LockoutThreshold = 5
+	}
+	if a.LockoutDuration == 0 {
+		a.LockoutDuration = time.Minute
+	}
+	if a.LockoutMaxDuration == 0 {
+		a.LockoutMaxDuration = time.Hour
+	}
+	if a.LoginRatePerIP == 0 {
+		a.LoginRatePerIP = 30
+	}
+	if a.LoginRatePerUser == 0 {
+		a.LoginRatePerUser = 10
+	}
+	if a.APITokenMaxTTL == 0 {
+		a.APITokenMaxTTL = 365 * 24 * time.Hour
+	}
+}
+
+// Validate implements Validator.
+func (a *AuthConfig) Validate() error {
+	switch {
+	case a.SessionTTL < time.Minute:
+		return fmt.Errorf("auth.session_ttl must be at least 1m")
+	case a.SessionAbsoluteTTL < a.SessionTTL:
+		return fmt.Errorf("auth.session_absolute_ttl must be >= auth.session_ttl")
+	case a.PasswordMinLength < 8 || a.PasswordMinLength > 128:
+		return fmt.Errorf("auth.password_min_length must be between 8 and 128")
+	case a.LockoutThreshold < -1:
+		return fmt.Errorf("auth.lockout_threshold must be -1 (off) or positive")
+	case a.LockoutDuration < 0 || a.LockoutMaxDuration < a.LockoutDuration:
+		return fmt.Errorf("auth.lockout_max_duration must be >= auth.lockout_duration >= 0")
+	case a.LoginRatePerIP < -1 || a.LoginRatePerUser < -1:
+		return fmt.Errorf("auth.login_rate_per_ip/user must be -1 (off) or positive")
+	case a.APITokenMaxTTL < time.Hour:
+		return fmt.Errorf("auth.api_token_max_ttl must be at least 1h")
+	}
+	return nil
 }
 
 // ProxmoxConfig is owned by the proxmox agent (internal/proxmox, internal/deploy).
