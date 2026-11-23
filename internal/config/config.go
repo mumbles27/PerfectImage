@@ -228,7 +228,7 @@ func (c *Config) resolvePaths(base string) {
 	}
 	for _, p := range []*string{
 		&c.DataDir, &c.Database.Path, &c.Server.TLS.CertFile, &c.Server.TLS.KeyFile,
-		&c.Secrets.KeyFile, &c.Packer.WorkDir, &c.Backup.Dir,
+		&c.Secrets.KeyFile, &c.Packer.WorkDir, &c.Backup.Dir, &c.Backup.CopyTo, &c.SIEM.SpillDir,
 	} {
 		abs(p)
 	}
@@ -237,6 +237,11 @@ func (c *Config) resolvePaths(base string) {
 	}
 	for i := range c.Catalog.Dirs {
 		abs(&c.Catalog.Dirs[i])
+	}
+	for i := range c.SIEM.Outputs {
+		for _, p := range c.SIEM.Outputs[i].paths() {
+			abs(p)
+		}
 	}
 }
 

@@ -1,0 +1,63 @@
+{{define "head"}}<link rel="stylesheet" href="/ops/static/ops.css">{{end}}
+{{define "content"}}
+<h1>SIEM forwarding</h1>
+<p class="muted">Outputs are defined in the <code>siem.outputs</code> section of the config file (restart to apply).
+Credentials are entered here, sealed with the host master key and never shown again.
+Secret-looking fields (password, secret, token, key…) are redacted before forwarding.</p>
+{{if not .Data.Outputs}}
+<div class="notice">No SIEM outputs are configured. See <code>docs/siem.md</code>.</div>
+{{else}}
+<div id="siem-status" hx-get="/settings/siem/status" hx-trigger="every 5s" hx-swap="innerHTML">
+{{template "siem-status" .Data.Outputs}}
+</div>
+{{range .Data.Outputs}}
+<section class="ops-section">
+  <h2>{{.Name}} <span class="muted">({{.Type}} → {{.Target}})</span></h2>
+  {{if .Enabled}}
+  <form class="ops-form" hx-post="/settings/siem/{{.Name}}/test" hx-target="#test-{{.Name}}" hx-swap="innerHTML">
+    <button type="submit">Send test event</button>
+    <span id="test-{{.Name}}" class="ops-result"></span>
+  </form>
+  {{else}}<p class="muted">Disabled in config.</p>{{end}}
+  {{$name := .Name}}
+  {{range .Fields}}
+  <form class="ops-form" hx-post="/settings/siem/{{$name}}/credential" hx-target="#cred-{{$name}}-{{.Field}}" hx-swap="innerHTML">
+    <input type="hidden" name="field" value="{{.Field}}">
+    <label>{{.Field}} {{if .Set}}<span class="muted">(set by {{.UpdatedBy}} {{fmtTime .UpdatedAt}})</span>{{else}}<span class="muted">(not set)</span>{{end}}
+      <input type="password" name="value" autocomplete="new-password" maxlength="8192">
+    </label>
+    <button type="submit">Save</button>
+    {{if .Set}}<button type="submit" class="danger" name="clear" value="1" hx-confirm="Clear {{.Field}} for {{$name}}?">Clear</button>{{end}}
+    <span id="cred-{{$name}}-{{.Field}}" class="ops-result"></span>
+  </form>
+  {{end}}
+</section>
+{{end}}
+{{end}}
+{{end}}
+
+{{define "siem-status-partial"}}{{template "siem-status" .Data}}{{end}}
+
+{{define "siem-status"}}
+<table class="table">
+  <thead><tr><th>Output</th><th>Type</th><th>Streams</th><th>Health</th><th>Sent</th><th>Failed</th><th>Dropped</th><th>Queued</th><th>Spilled</th><th>Last error</th></tr></thead>
+  <tbody>
+  {{range .}}{{$o := .}}
+  <tr>
+    <td>{{.Name}}</td>
+    <td>{{.Type}}</td>
+    <td>{{range $i, $s := .Streams}}{{if $i}}, {{end}}{{$s}}{{end}}{{if .MinLevel}} <span class="muted">(logs ≥ {{.MinLevel}})</span>{{end}}</td>
+    <td>{{if not .Enabled}}<span class="status">disabled</span>{{else if .Healthy}}<span class="status status-succeeded">ok</span>{{else}}<span class="status status-failed">failing</span>{{end}}</td>
+    <td>{{.Sent}}</td>
+    <td>{{.Failed}}</td>
+    <td>{{.Dropped}}</td>
+    <td>{{.Queued}}/{{.QueueCap}}</td>
+    <td>{{.Spilled}}{{if .SpilledBytes}} <span class="muted">({{.SpilledBytes}} B)</span>{{end}}</td>
+    <td>{{with .LastError}}<span class="ops-bad">{{.}}</span><div class="muted">{{fmtTime $o.LastErrorAt}}</div>{{else}}<span class="muted">—</span>{{end}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{end}}
+
+{{define "result"}}{{with .Data}}<span class="{{if .OK}}ops-ok{{else}}ops-bad{{end}}">{{.Message}}</span>{{end}}{{end}}
