@@ -1,0 +1,26 @@
+id: 7zip
+name: 7-Zip
+category: utility
+description: File archiver with a high compression ratio.
+homepage: https://www.7-zip.org
+install:
+  windows:
+    - winget:
+        id: 7zip.7zip
+      verify: 'if (Test-Path "$env:ProgramFiles\7-Zip\7z.exe") { exit 0 } else { exit 1 }'
+    - choco:
+        package: 7zip
+      verify: 'if (Test-Path "$env:ProgramFiles\7-Zip\7z.exe") { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [7zip]
+      verify: command -v 7zz || command -v 7z
+    - apt:
+        packages: [p7zip-full]
+      verify: command -v 7z
+    - shell:
+        script: |
+          dnf -y install epel-release &&
+            { dnf -y install 7zip || dnf -y install p7zip p7zip-plugins; }
+      distros: [rhel]
+      verify: command -v 7zz || command -v 7z || command -v 7za

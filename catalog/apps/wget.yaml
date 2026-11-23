@@ -1,0 +1,20 @@
+id: wget
+name: GNU Wget
+category: utility
+description: Command-line tool for retrieving files over HTTP, HTTPS and FTP.
+homepage: https://www.gnu.org/software/wget/
+install:
+  windows:
+    - winget:
+        id: JernejSimoncic.Wget
+      verify: 'if ((Test-Path "$env:ProgramFiles\WinGet\Links\wget.exe") -or (Test-Path "$env:ProgramData\chocolatey\bin\wget.exe")) { exit 0 } else { exit 1 }'
+    - choco:
+        package: wget
+      verify: 'if ((Test-Path "$env:ProgramFiles\WinGet\Links\wget.exe") -or (Test-Path "$env:ProgramData\chocolatey\bin\wget.exe")) { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [wget]
+      verify: command -v wget
+    - dnf:
+        packages: [wget]
+      verify: command -v wget

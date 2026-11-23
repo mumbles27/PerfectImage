@@ -1,0 +1,20 @@
+id: wireshark
+name: Wireshark
+category: security
+description: Network protocol analyzer.
+homepage: https://www.wireshark.org
+install:
+  windows:
+    - winget:
+        id: WiresharkFoundation.Wireshark
+      verify: 'if (Test-Path "$env:ProgramFiles\Wireshark\Wireshark.exe") { exit 0 } else { exit 1 }'
+    - choco:
+        package: wireshark
+      verify: 'if (Test-Path "$env:ProgramFiles\Wireshark\Wireshark.exe") { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [wireshark, tshark]
+      verify: command -v wireshark
+    - dnf:
+        packages: [wireshark, wireshark-cli]
+      verify: command -v wireshark

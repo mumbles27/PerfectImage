@@ -1,0 +1,23 @@
+id: vlc
+name: VLC media player
+category: media
+description: Cross-platform multimedia player.
+homepage: https://www.videolan.org/vlc/
+install:
+  windows:
+    - winget:
+        id: VideoLAN.VLC
+      verify: 'if ((Test-Path "$env:ProgramFiles\VideoLAN\VLC\vlc.exe") -or (Test-Path "${env:ProgramFiles(x86)}\VideoLAN\VLC\vlc.exe")) { exit 0 } else { exit 1 }'
+    - choco:
+        package: vlc
+      verify: 'if ((Test-Path "$env:ProgramFiles\VideoLAN\VLC\vlc.exe") -or (Test-Path "${env:ProgramFiles(x86)}\VideoLAN\VLC\vlc.exe")) { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [vlc]
+      verify: command -v vlc
+    - flatpak:
+        id: org.videolan.VLC
+      verify: flatpak info org.videolan.VLC >/dev/null 2>&1
+    - snap:
+        name: vlc
+      verify: snap list vlc >/dev/null 2>&1

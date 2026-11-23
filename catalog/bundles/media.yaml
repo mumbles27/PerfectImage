@@ -1,0 +1,4 @@
+id: media
+name: Media
+description: Media playback and archive tools.
+apps: [vlc, 7zip]

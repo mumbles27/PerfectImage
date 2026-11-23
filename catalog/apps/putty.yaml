@@ -1,0 +1,23 @@
+id: putty
+name: PuTTY
+category: utility
+description: SSH and telnet client.
+homepage: https://www.chiark.greenend.org.uk/~sgtatham/putty/
+install:
+  windows:
+    - winget:
+        id: PuTTY.PuTTY
+      verify: 'if (Test-Path "$env:ProgramFiles\PuTTY\putty.exe") { exit 0 } else { exit 1 }'
+    - choco:
+        package: putty
+      verify: 'if ((Test-Path "$env:ProgramFiles\PuTTY\putty.exe") -or (Test-Path "$env:ProgramData\chocolatey\bin\putty.exe")) { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [putty, putty-tools]
+      verify: command -v putty
+    - shell:
+        script: |
+          dnf -y install epel-release &&
+            dnf -y install putty
+      distros: [rhel]
+      verify: command -v putty

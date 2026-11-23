@@ -1,11 +1,19 @@
-// Package packer will drive HashiCorp Packer builds of Proxmox VM templates.
+// Package packer drives HashiCorp Packer builds of Proxmox VE VM templates
+// from the image catalog (see package catalog and docs/packer.md).
 //
-// Owner: packer agent. Not implemented in the foundation.
+// A build (job type "packer.build") renders a per-build workdir under
+// packer.work_dir/builds/<id>: a copy of the image directory, the generated
+// app scripts (catalog.Resolve) wired in as provisioners where the image's
+// build.pkr.hcl has the "# @perfectimage:apps" line, and a 0600
+// perfectimage.auto.pkrvars.hcl with the non-secret variables. Proxmox
+// credentials (from the ClusterCreds provider installed with
+// SetClusterCreds) and the random per-build guest password are passed only
+// through the environment (PROXMOX_URL, PROXMOX_USERNAME, PROXMOX_TOKEN,
+// PKR_VAR_build_password) and are redacted from job logs.
 //
-// Expected seams: an app.Plugin registering the "packer.build" job type and a
-// web.Module serving /build guarded by rbac.ImagesView / rbac.ImagesBuild.
-// Settings live in config.PackerConfig. Packer stdout/stderr should be piped
-// into the job's *jobs.LogWriter (it is safe for concurrent use). Make sure
-// variables holding credentials are passed via env/var-files, not argv, and
-// never echoed to the job log.
+// The job runs `packer init`, `packer validate` and
+// `packer build -color=false -machine-readable`, turning machine-readable
+// output into readable log lines. Cancellation interrupts packer (so it can
+// delete the build VM) and kills it after packer.interrupt_grace. Build
+// history is kept in the packer_builds table and shown at /build.
 package packer

@@ -1,0 +1,26 @@
+id: sysinternals
+name: Sysinternals Suite
+category: utility
+description: Microsoft Sysinternals troubleshooting and diagnostic utilities.
+homepage: https://learn.microsoft.com/sysinternals/
+install:
+  windows:
+    - winget:
+        id: Microsoft.Sysinternals.Suite
+      verify: 'if (@("$env:ProgramFiles\Sysinternals\procexp64.exe", "$env:ProgramFiles\WinGet\Links\procexp64.exe", "$env:ProgramData\chocolatey\lib\sysinternals\tools\procexp64.exe") | Where-Object { Test-Path $_ }) { exit 0 } else { exit 1 }'
+    - choco:
+        package: sysinternals
+      verify: 'if (@("$env:ProgramFiles\Sysinternals\procexp64.exe", "$env:ProgramFiles\WinGet\Links\procexp64.exe", "$env:ProgramData\chocolatey\lib\sysinternals\tools\procexp64.exe") | Where-Object { Test-Path $_ }) { exit 0 } else { exit 1 }'
+    - powershell:
+        script: |
+          $dest = Join-Path $env:ProgramFiles 'Sysinternals'
+          $zip = Join-Path $env:TEMP 'SysinternalsSuite.zip'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://download.sysinternals.com/files/SysinternalsSuite.zip' -OutFile $zip -ErrorAction Stop
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Expand-Archive -Path $zip -DestinationPath $dest -Force -ErrorAction Stop
+          Remove-Item -Path $zip -Force
+          $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+          if (($machinePath -split ';') -notcontains $dest) {
+            [Environment]::SetEnvironmentVariable('Path', "$machinePath;$dest", 'Machine')
+          }
+      verify: 'if (Test-Path "$env:ProgramFiles\Sysinternals\procexp64.exe") { exit 0 } else { exit 1 }'

@@ -41,8 +41,10 @@ jobs:
   poll_interval: 2s
 
 catalog:
+  # Override directories layered over the built-in catalog (later wins by id).
+  # The web editor writes to the last one. Default <data_dir>/catalog.
   dirs:
-    - ./catalog
+    - ./data/catalog
 
 secrets:
   # Default <data_dir>/secrets/master.key (0600) on Linux,
@@ -63,8 +65,16 @@ proxmox:
   #   ca_file: /etc/perfectimage/pve-ca.pem
 
 packer:
-  binary: ""      # default: "packer" from PATH
-  work_dir: ""    # default <data_dir>/packer
+  binary: ""      # absolute path; default: "packer" from PATH
+  work_dir: ""    # default <data_dir>/packer (builds/, plugins/, cache/, bin/)
+  # Download this packer release into <work_dir>/bin when no binary is found.
+  version: ""                 # e.g. "1.14.2"
+  version_sha256: ""          # SHA-256 of the platform zip; default: release SHA256SUMS
+  releases_url: https://releases.hashicorp.com
+  build_timeout: 4h
+  interrupt_grace: 2m         # time for packer to delete the build VM after cancel
+  keep_workdir: on_failure    # never | on_failure | always
+  catalog_reload_interval: 10s  # poll catalog.dirs for changes; negative disables
 
 siem:
   outputs: []

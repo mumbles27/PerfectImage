@@ -1,9 +1,3 @@
-// Package catalog will load and validate image/app catalog definitions from
-// the directories in config.CatalogConfig.Dirs (and the repo's top-level
-// catalog/ directory).
-//
-// Owner: packer agent. The foundation only defines the Validator seam used
-// by `perfectimage catalog validate`.
 package catalog
 
 import "context"
@@ -15,8 +9,8 @@ type Problem struct {
 	Message string
 }
 
-// Validator validates catalog directories. Implemented by the packer agent,
-// which should replace the stub CLI command via cli.Register.
+// Validator validates catalog directories. DirValidator implements it and
+// backs the `perfectimage catalog validate` command.
 type Validator interface {
 	Validate(ctx context.Context, dirs []string) ([]Problem, error)
 }

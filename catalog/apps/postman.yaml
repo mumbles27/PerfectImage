@@ -1,0 +1,20 @@
+id: postman
+name: Postman
+category: dev
+description: API development and testing platform.
+homepage: https://www.postman.com
+install:
+  windows:
+    - winget:
+        id: Postman.Postman
+      verify: 'if ((Test-Path "$env:LOCALAPPDATA\Postman\Postman.exe") -or (Test-Path "$env:ProgramFiles\Postman\Postman.exe")) { exit 0 } else { exit 1 }'
+    - choco:
+        package: postman
+      verify: 'if ((Test-Path "$env:LOCALAPPDATA\Postman\Postman.exe") -or (Test-Path "$env:ProgramFiles\Postman\Postman.exe")) { exit 0 } else { exit 1 }'
+  linux:
+    - snap:
+        name: postman
+      verify: snap list postman >/dev/null 2>&1
+    - flatpak:
+        id: com.getpostman.Postman
+      verify: flatpak info com.getpostman.Postman >/dev/null 2>&1

@@ -1,0 +1,20 @@
+id: jq
+name: jq
+category: utility
+description: Command-line JSON processor.
+homepage: https://jqlang.org
+install:
+  windows:
+    - winget:
+        id: jqlang.jq
+      verify: 'if ((Test-Path "$env:ProgramFiles\WinGet\Links\jq.exe") -or (Test-Path "$env:ProgramData\chocolatey\bin\jq.exe")) { exit 0 } else { exit 1 }'
+    - choco:
+        package: jq
+      verify: 'if ((Test-Path "$env:ProgramFiles\WinGet\Links\jq.exe") -or (Test-Path "$env:ProgramData\chocolatey\bin\jq.exe")) { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [jq]
+      verify: command -v jq
+    - dnf:
+        packages: [jq]
+      verify: command -v jq

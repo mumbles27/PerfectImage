@@ -1,0 +1,41 @@
+# Rocky Linux 9 kickstart, rendered by Packer's templatefile().
+text
+reboot
+eula --agreed
+lang en_US.UTF-8
+keyboard us
+timezone UTC --utc
+firstboot --disable
+selinux --enforcing
+firewall --enabled --ssh
+
+# The boot ISO carries no packages, so install from the public mirror network.
+url --url="https://download.rockylinux.org/pub/rocky/9/BaseOS/x86_64/os/"
+repo --name="AppStream" --baseurl="https://download.rockylinux.org/pub/rocky/9/AppStream/x86_64/os/"
+
+network --bootproto=dhcp --device=link --activate --hostname=rocky9.local
+
+# Root locked; one build user in wheel with a temporary password.
+rootpw --lock
+user --name=${username} --password=${password} --plaintext --groups=wheel
+
+zerombr
+clearpart --all --initlabel
+autopart --type=plain
+bootloader --location=mbr
+
+%packages
+@^minimal-environment
+qemu-guest-agent
+cloud-init
+cloud-utils-growpart
+openssh-server
+sudo
+%end
+
+%post --erroronfail
+# Passwordless sudo for the build user during the build only; cleanup.sh removes it.
+echo '${username} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/99-pi-build
+chmod 0440 /etc/sudoers.d/99-pi-build
+systemctl enable qemu-guest-agent sshd
+%end

@@ -1,0 +1,24 @@
+id: windows-server-2025
+name: Windows Server 2025 Standard
+description: Windows Server 2025 Standard (Desktop Experience) with virtio drivers and the QEMU guest agent, generalized with Sysprep.
+os_family: windows
+os: windows-server
+version: "2025"
+arch: amd64
+iso:
+  iso_file: local:iso/windows-server-2025.iso
+  virtio_iso_file: local:iso/virtio-win.iso
+firmware: uefi
+tpm: false
+resources:
+  cores: 4
+  memory: 8192
+  disk: 64G
+  storage: local-lvm
+  bridge: vmbr0
+communicator: winrm
+default_apps:
+  - 7zip
+tags:
+  - windows
+  - windows-server

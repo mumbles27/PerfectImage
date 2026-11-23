@@ -1,0 +1,20 @@
+id: openjdk
+name: OpenJDK 21
+category: dev
+description: OpenJDK 21 LTS Java development kit.
+homepage: https://openjdk.org
+install:
+  windows:
+    - winget:
+        id: Microsoft.OpenJDK.21
+      verify: 'if (Get-ChildItem -Path "$env:ProgramFiles\Microsoft\jdk-21*\bin\javac.exe", "$env:ProgramFiles\Eclipse Adoptium\jdk-21*\bin\javac.exe" -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }'
+    - choco:
+        package: temurin21
+      verify: 'if (Get-ChildItem -Path "$env:ProgramFiles\Microsoft\jdk-21*\bin\javac.exe", "$env:ProgramFiles\Eclipse Adoptium\jdk-21*\bin\javac.exe" -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [openjdk-21-jdk]
+      verify: command -v javac
+    - dnf:
+        packages: [java-21-openjdk-devel]
+      verify: command -v javac
