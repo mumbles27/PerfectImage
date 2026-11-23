@@ -1,0 +1,9 @@
+{{define "head"}}<link rel="stylesheet" href="/auth/static/auth.css">{{end}}
+{{define "content"}}
+<div class="auth-box">
+  <h1>Recovery codes</h1>
+  <p>Two-factor authentication is enabled. Store these recovery codes somewhere safe. Each works once if you lose your device. <strong>They are shown only once.</strong></p>
+  <ul class="codes">{{range .Data.Codes}}<li>{{.}}</li>{{end}}</ul>
+  <p><a class="button" href="{{.Data.Next}}">Continue</a></p>
+</div>
+{{end}}

@@ -1,0 +1,25 @@
+{{define "head"}}<link rel="stylesheet" href="/auth/static/auth.css"><script src="/auth/static/auth.js" defer></script>{{end}}
+{{define "content"}}
+<div class="auth-box">
+  <h1>Sign in</h1>
+  {{with .Data.Notice}}<div class="flash flash-ok" role="status">{{.}}</div>{{end}}
+  {{with .Data.Error}}<div class="flash flash-err" role="alert">{{.}}</div>{{end}}
+  <form method="post" action="/login" class="stack">
+    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+    <input type="hidden" name="next" value="{{.Data.Next}}">
+    <label>Username
+      <input name="username" value="{{.Data.Username}}" autocomplete="username" autocapitalize="none" required autofocus>
+    </label>
+    <label>Password
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit">Sign in</button>
+  </form>
+  {{if .Data.Providers}}
+  <div class="sso">
+    <span class="muted">Or sign in with</span>
+    {{range .Data.Providers}}<a class="button" href="/login/oidc/{{.Name}}{{if ne $.Data.Next "/"}}?next={{$.Data.Next}}{{end}}">{{.DisplayName}}</a>{{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}

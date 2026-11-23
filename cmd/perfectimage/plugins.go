@@ -8,5 +8,8 @@ package main
 //
 // Keep this list sorted; it is the only core file domain agents need to edit.
 import (
+	_ "github.com/mumbles27/PerfectImage/internal/auth/authplugin"
+	_ "github.com/mumbles27/PerfectImage/internal/deploy"
 	_ "github.com/mumbles27/PerfectImage/internal/packer"
+	_ "github.com/mumbles27/PerfectImage/internal/proxmox"
 )
