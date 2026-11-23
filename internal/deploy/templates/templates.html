@@ -1,0 +1,37 @@
+{{define "head"}}<link rel="stylesheet" href="/proxmox/static/forms.css"><script src="/proxmox/static/confirm.js" defer></script>{{end}}
+{{define "content"}}
+<h1>Templates</h1>
+<nav class="tabs" aria-label="Deploy"><a href="/deploy">Deploy VM</a><a href="/deploy/templates" class="active" aria-current="page">Templates</a><a href="/deploy/history">History</a></nav>
+
+{{with .Data.Notice}}<div class="alert alert-ok" role="status">{{.}}</div>{{end}}
+{{with .Data.Error}}<div class="alert alert-error" role="alert">{{.}}</div>{{end}}
+{{range .Data.Errors}}<div class="alert alert-warn" role="alert">Cluster {{.Cluster}}: {{.Message}}</div>{{end}}
+{{if .Data.Rows}}
+<table class="table">
+  <thead><tr><th>Name</th><th>Cluster / node</th><th>VMID</th><th>Tags</th><th>Build metadata</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Rows}}
+  <tr>
+    <td>{{.Name}} {{if .PI}}<span class="badge badge-pi">PerfectImage</span>{{end}}</td>
+    <td>{{.Cluster}} / {{.Node}}</td>
+    <td>{{.VMID}}</td>
+    <td>{{range .Tags}}<span class="tag">{{.}}</span>{{end}}</td>
+    <td class="small">{{range .Metadata}}<div><span class="muted">{{index . 0}}:</span> {{index . 1}}</div>{{end}}</td>
+    <td>
+      {{if $.Data.CanDeploy}}<a href="/deploy?cluster={{.Cluster}}">Deploy</a>{{end}}
+      {{if $.Data.CanDelete}}
+      <form method="post" action="/deploy/templates/delete" class="inline" data-confirm="Delete template {{.Name}} ({{.VMID}})? This destroys its disks.">
+        {{with $.CSRFToken}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
+        <input type="hidden" name="cluster" value="{{.Cluster}}">
+        <input type="hidden" name="node" value="{{.Node}}">
+        <input type="hidden" name="vmid" value="{{.VMID}}">
+        <button type="submit" class="danger">Delete</button>
+      </form>
+      {{end}}
+    </td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<p class="muted">No templates found.</p>{{end}}
+{{end}}

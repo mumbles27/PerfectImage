@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -26,17 +27,50 @@ func (a *AuthConfig) ApplyDefaults(*Config) {
 // ProxmoxConfig is owned by the proxmox agent (internal/proxmox, internal/deploy).
 // Credentials must be stored sealed in the database, not in this file.
 type ProxmoxConfig struct {
+	// Clusters are seeded into the database the first time each name is seen.
+	// After that, the database copy (edited in Settings > Proxmox) wins.
 	Clusters []ProxmoxCluster `yaml:"clusters"`
+	// RequestTimeout bounds a single API request. Default 30s.
+	RequestTimeout time.Duration `yaml:"request_timeout"`
+	// TaskTimeout bounds waiting for one Proxmox task (clone, start...). Default 30m.
+	TaskTimeout time.Duration `yaml:"task_timeout"`
+	// AgentTimeout bounds waiting for the QEMU guest agent after start. Default 15m.
+	AgentTimeout time.Duration `yaml:"agent_timeout"`
 }
 
 // ProxmoxCluster describes one Proxmox VE endpoint.
 type ProxmoxCluster struct {
 	Name     string `yaml:"name"`
 	Endpoint string `yaml:"endpoint"` // https://pve.example:8006/api2/json
+	// TokenID is the API token id, USER@REALM!TOKENID.
+	TokenID string `yaml:"token_id"`
+	// TokenSecretFile optionally points at a 0600 file holding the token
+	// secret. It is read once at seed time and sealed into the database.
+	TokenSecretFile string `yaml:"token_secret_file"`
 	// InsecureSkipVerify disables TLS verification (lab use only).
 	InsecureSkipVerify bool `yaml:"insecure_skip_verify"`
 	// CAFile pins a CA bundle for the endpoint.
 	CAFile string `yaml:"ca_file"`
+	// Fingerprint pins the SHA-256 fingerprint of the server certificate
+	// (hex, colons optional).
+	Fingerprint    string `yaml:"fingerprint"`
+	DefaultNode    string `yaml:"default_node"`
+	DefaultStorage string `yaml:"default_storage"`
+	DefaultBridge  string `yaml:"default_bridge"`
+	DefaultPool    string `yaml:"default_pool"`
+}
+
+// ApplyDefaults implements Defaulter.
+func (p *ProxmoxConfig) ApplyDefaults(*Config) {
+	if p.RequestTimeout == 0 {
+		p.RequestTimeout = 30 * time.Second
+	}
+	if p.TaskTimeout == 0 {
+		p.TaskTimeout = 30 * time.Minute
+	}
+	if p.AgentTimeout == 0 {
+		p.AgentTimeout = 15 * time.Minute
+	}
 }
 
 // Validate implements Validator.
@@ -50,6 +84,12 @@ func (p *ProxmoxConfig) Validate() error {
 			return fmt.Errorf("proxmox.clusters[%d]: duplicate name %q", i, c.Name)
 		}
 		seen[c.Name] = true
+		if c.TokenID != "" && !strings.Contains(c.TokenID, "!") {
+			return fmt.Errorf("proxmox.clusters[%d]: token_id must look like USER@REALM!TOKENID", i)
+		}
+	}
+	if p.RequestTimeout < 0 || p.TaskTimeout < 0 || p.AgentTimeout < 0 {
+		return fmt.Errorf("proxmox: timeouts must be >= 0")
 	}
 	return nil
 }
