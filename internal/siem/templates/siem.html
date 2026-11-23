@@ -15,6 +15,7 @@ Secret-looking fields (password, secret, token, key…) are redacted before forw
   <h2>{{.Name}} <span class="muted">({{.Type}} → {{.Target}})</span></h2>
   {{if .Enabled}}
   <form class="ops-form" hx-post="/settings/siem/{{.Name}}/test" hx-target="#test-{{.Name}}" hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
     <button type="submit">Send test event</button>
     <span id="test-{{.Name}}" class="ops-result"></span>
   </form>
@@ -22,6 +23,7 @@ Secret-looking fields (password, secret, token, key…) are redacted before forw
   {{$name := .Name}}
   {{range .Fields}}
   <form class="ops-form" hx-post="/settings/siem/{{$name}}/credential" hx-target="#cred-{{$name}}-{{.Field}}" hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
     <input type="hidden" name="field" value="{{.Field}}">
     <label>{{.Field}} {{if .Set}}<span class="muted">(set by {{.UpdatedBy}} {{fmtTime .UpdatedAt}})</span>{{else}}<span class="muted">(not set)</span>{{end}}
       <input type="password" name="value" autocomplete="new-password" maxlength="8192">

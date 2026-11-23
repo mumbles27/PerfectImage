@@ -288,7 +288,9 @@ type BackupConfig struct {
 }
 
 // MasterKeyIncluded reports whether backups include the master key (default true).
-func (b BackupConfig) MasterKeyIncluded() bool { return b.IncludeMasterKey == nil || *b.IncludeMasterKey }
+func (b BackupConfig) MasterKeyIncluded() bool {
+	return b.IncludeMasterKey == nil || *b.IncludeMasterKey
+}
 
 // ApplyDefaults implements Defaulter.
 func (b *BackupConfig) ApplyDefaults(c *Config) {

@@ -55,7 +55,7 @@
 {{define "verify-badge"}}
 {{with .Data}}
   {{if .Err}}<span class="status status-failed" title="{{.Err}}">chain check error</span>
-  {{else if .Result.OK}}<span class="status status-succeeded" title="head {{.Result.HeadHash}} · verified {{fmtTime .Result.VerifiedAt}}">✓ chain verified ({{.Result.Checked}} events)</span>
+  {{else if .Result.OK}}<span class="status status-succeeded" title="head {{.Result.HeadHash}} · verified {{fmtTime .Result.VerifiedAt}}">✓ chain verified ({{.Result.Checked}} events, checked {{fmtTime .Result.VerifiedAt}})</span>
   {{else}}<span class="status status-failed" title="{{.Result.Problem}}">✗ chain broken at #{{.Result.BrokenSeq}}: {{.Result.Problem}}</span>{{end}}
   <a href="/audit/verify?force=1" hx-get="/audit/verify?force=1" hx-target="#audit-verify" hx-swap="innerHTML">re-check</a>
 {{end}}

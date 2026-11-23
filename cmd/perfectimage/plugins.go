@@ -7,4 +7,8 @@ package main
 //	_ "github.com/mumbles27/PerfectImage/internal/packer"
 //
 // Keep this list sorted; it is the only core file domain agents need to edit.
-import ()
+import (
+	_ "github.com/mumbles27/PerfectImage/internal/audit/auditlog"
+	_ "github.com/mumbles27/PerfectImage/internal/backup"
+	_ "github.com/mumbles27/PerfectImage/internal/siem"
+)

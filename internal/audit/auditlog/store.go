@@ -465,8 +465,8 @@ func scanEntry(sc scanner) (Entry, error) {
 // LEFT JOIN; null reports an empty audit_events table.
 func scanEntryWithAnchor(sc scanner, aseq *int64, ahash *string) (Entry, bool, error) {
 	var (
-		seq, ts                                                  sql.NullInt64
-		id, actorID, actor, action, target, outcome, reason      sql.NullString
+		seq, ts                                                 sql.NullInt64
+		id, actorID, actor, action, target, outcome, reason     sql.NullString
 		sourceIP, userAgent, requestID, details, prevHash, hash sql.NullString
 	)
 	if err := sc.Scan(aseq, ahash, &seq, &id, &ts, &actorID, &actor, &action, &target, &outcome, &reason,
