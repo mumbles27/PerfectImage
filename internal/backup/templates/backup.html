@@ -1,0 +1,74 @@
+{{define "head"}}<link rel="stylesheet" href="/ops/static/ops.css">{{end}}
+{{define "content"}}
+<h1>Backup &amp; restore</h1>
+{{with .Data.RestartRequired}}<div class="ops-danger"><strong>{{.}}.</strong> Restart the PerfectImage service to finish; job processing is stopped.</div>{{end}}
+
+<section class="ops-section">
+  <h2>Backups</h2>
+  <dl class="meta">
+    <dt>Directory</dt><dd><code>{{.Data.Dir}}</code></dd>
+    <dt>Copy to</dt><dd>{{if .Data.CopyTo}}<code>{{.Data.CopyTo}}</code>{{else}}<span class="muted">not configured</span>{{end}}</dd>
+    <dt>Schedule</dt><dd>{{if .Data.Schedule}}<code>{{.Data.Schedule}}</code>{{else}}<span class="muted">manual only</span>{{end}} · keep {{.Data.Retention}}</dd>
+    <dt>Master key</dt><dd>{{if .Data.IncludeMasterKey}}included (encrypted with the backup passphrase){{else}}not included{{end}}</dd>
+  </dl>
+  {{if .Data.IncludeMasterKey}}<div class="ops-warn">Archives include the host master key so sealed credentials can be restored on a new host.
+  Anyone with an archive <em>and</em> its passphrase can decrypt every stored credential. Use a long passphrase and store archives securely.</div>{{end}}
+  {{if not .Data.HasPassphrase}}<div class="ops-warn">No backup passphrase is configured; scheduled and manual backups will fail until one is set below.</div>{{end}}
+  <form class="ops-form" hx-post="/settings/backup/run" hx-target="#run-result" hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+    <button type="submit"{{if .Data.RestartRequired}} disabled{{end}}>Run backup now</button>
+    <span id="run-result" class="ops-result"></span>
+  </form>
+  {{if .Data.Backups}}
+  <table class="table">
+    <thead><tr><th>Archive</th><th>Created</th><th>Size</th><th></th></tr></thead>
+    <tbody>
+    {{range .Data.Backups}}
+      <tr>
+        <td><code>{{.Name}}</code>{{if .PreRestore}} <span class="status">pre-restore</span>{{end}}</td>
+        <td>{{fmtTime .ModTime}}</td>
+        <td>{{.Size}} B</td>
+        <td><a href="/settings/backup/download/{{.Name}}" download>Download</a></td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}<p class="muted">No backups yet.</p>{{end}}
+</section>
+
+{{if hasPerm .Principal "settings.manage"}}
+<section class="ops-section">
+  <h2>Backup passphrase</h2>
+  <p class="muted">{{if .Data.HasPassphrase}}A passphrase is set.{{else}}Not set.{{end}} Used for scheduled and manual backups; stored sealed. At least {{.Data.MinPassphrase}} characters. Keep a copy offline: without it, backups cannot be restored.</p>
+  <form class="ops-form" hx-post="/settings/backup/passphrase" hx-target="#pass-result" hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+    <label>Passphrase <input type="password" name="passphrase" autocomplete="new-password" minlength="{{.Data.MinPassphrase}}" required></label>
+    <label>Confirm <input type="password" name="confirm" autocomplete="new-password" minlength="{{.Data.MinPassphrase}}" required></label>
+    <button type="submit">Save passphrase</button>
+    <span id="pass-result" class="ops-result"></span>
+  </form>
+</section>
+
+<section class="ops-section">
+  <h2>Restore from archive</h2>
+  <div class="ops-danger">Restoring replaces the database (users, credentials, jobs, audit log) with the archive's contents.
+  A safety backup of the current state is written first, job processing stops, and the service must be restarted afterwards.</div>
+  <form class="ops-form" hx-post="/settings/backup/restore" hx-encoding="multipart/form-data" hx-target="#restore-result" hx-swap="innerHTML"
+        hx-confirm="Replace the current database with this archive?">
+    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+    <label>Archive (.pibak, max {{.Data.MaxUploadMB}} MB) <input type="file" name="archive" accept=".pibak" required></label>
+    <label>Archive passphrase <input type="password" name="passphrase" autocomplete="off" placeholder="blank = stored passphrase"></label>
+    <label>Type {{.Data.Confirmation}} to confirm <input type="text" name="confirm" autocomplete="off" required pattern="{{.Data.Confirmation}}"></label>
+    <label><span><input type="checkbox" name="force" value="1"> Force (newer schema / running jobs)</span></label>
+    <button type="submit" class="danger"{{if .Data.RestartRequired}} disabled{{end}}>Restore</button>
+  </form>
+  <div id="restore-result" class="ops-result"></div>
+</section>
+{{end}}
+{{end}}
+
+{{define "result"}}{{with .Data}}
+<div class="{{if .OK}}ops-ok{{else}}ops-bad{{end}}">{{.Message}}</div>
+{{if .Details}}<ul>{{range .Details}}<li>{{.}}</li>{{end}}</ul>{{end}}
+{{if .Warnings}}<div class="ops-warn"><ul>{{range .Warnings}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+{{end}}{{end}}

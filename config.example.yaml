@@ -101,12 +101,51 @@ packer:
   catalog_reload_interval: 10s  # poll catalog.dirs for changes; negative disables
 
 siem:
+  # Audit log retention (0 keeps events forever) and write buffer size.
+  audit_retention: 8760h
+  audit_queue_size: 4096
+  spill_dir: ""          # default <data_dir>/siem (per-output on-disk backlog)
+  # Credentials (HEC token, API key, password, HMAC secret) are entered on
+  # /settings/siem and sealed in the database, never configured here.
   outputs: []
   # - name: central-syslog
-  #   type: syslog
-  #   options: {address: "tcp://siem.example.com:6514"}
+  #   type: syslog              # syslog | cef | splunk_hec | elastic | webhook | file
+  #   address: tls://siem.example.com:6514   # udp:// | tcp:// (octet counting) | tls://
+  #   ca_file: /etc/perfectimage/siem-ca.pem
+  #   cert_file: ""             # client certificate for mutual TLS
+  #   key_file: ""
+  #   facility: local0
+  #   streams: [audit, logs]    # default both
+  #   min_level: warn           # minimum application log level forwarded
+  # - name: splunk
+  #   type: splunk_hec
+  #   url: https://splunk.example.com:8088
+  #   index: perfectimage
+  #   sourcetype: perfectimage:json
+  # - name: elastic
+  #   type: elastic             # Elasticsearch or OpenSearch _bulk
+  #   url: https://es.example.com:9200
+  #   index: logs-perfectimage-default
+  #   username: ""              # set for basic auth; empty uses an API key
+  # - name: webhook
+  #   type: webhook
+  #   url: https://hooks.example.com/perfectimage
+  #   headers: {X-Tenant: lab}
+  # - name: local-json
+  #   type: file
+  #   path: ./data/siem/events.jsonl
+  #   max_size_mb: 100
+  #   max_files: 5
+  # Per-output tuning (defaults shown): queue_size: 1000, batch_size: 100,
+  # flush_interval: 2s, timeout: 10s, max_backoff: 5m, spill_max_mb: 64
+  # (-1 disables spilling), disabled: false.
 
 backup:
-  dir: ""         # default <data_dir>/backups
-  retention: 7
-  schedule: ""
+  dir: ""                # default <data_dir>/backups
+  retention: 7           # scheduled and pre-restore archives kept (each)
+  schedule: ""           # cron, e.g. "0 2 * * *" or "@daily"; empty = manual only
+  copy_to: ""            # optional second directory or UNC path (\\server\share\pi)
+  # Include the host master key (encrypted with the backup passphrase) so
+  # sealed credentials can be restored on a new host. See docs/backup.md.
+  include_master_key: true
+  max_upload_mb: 2048    # restore upload limit on /settings/backup

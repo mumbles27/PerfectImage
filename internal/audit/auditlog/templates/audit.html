@@ -1,0 +1,62 @@
+{{define "head"}}<link rel="stylesheet" href="/ops/static/ops.css">{{end}}
+{{define "content"}}
+<div class="ops-head">
+  <h1>Audit log</h1>
+  <div id="audit-verify" hx-get="/audit/verify" hx-trigger="load" hx-swap="innerHTML">
+    <span class="status">verifying chain…</span>
+  </div>
+</div>
+<form class="filters ops-filters" method="get" action="/audit">
+  <label>From <input type="datetime-local" name="from" value="{{.Data.Filter.From}}"></label>
+  <label>To <input type="datetime-local" name="to" value="{{.Data.Filter.To}}"></label>
+  <label>Actor <input type="text" name="actor" value="{{.Data.Filter.Actor}}" placeholder="username"></label>
+  <label>Action <input type="text" name="action" value="{{.Data.Filter.Action}}" placeholder="prefix, e.g. auth."></label>
+  <label>Outcome
+    <select name="outcome">
+      <option value="">All</option>
+      {{range .Data.Outcomes}}<option value="{{.}}"{{if eq (print .) $.Data.Filter.Outcome}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+  </label>
+  <label>Target <input type="text" name="target" value="{{.Data.Filter.Target}}"></label>
+  <button type="submit">Filter</button>
+  <a href="/audit">Reset</a>
+</form>
+<p class="muted">
+  {{.Data.Total}} matching event(s) · Export: <a href="{{.Data.ExportCSV}}">CSV</a> · <a href="{{.Data.ExportJSON}}">JSON lines</a>
+  (exports are audited) · Recorder: {{.Data.Metrics.Recorded}} written, {{.Data.Metrics.QueueLen}}/{{.Data.Metrics.QueueCap}} queued,
+  {{.Data.Metrics.Dropped}} dropped, {{.Data.Metrics.WriteErrors}} write errors
+</p>
+{{if .Data.Rows}}
+<table class="table">
+  <thead><tr><th>#</th><th>Time</th><th>Actor</th><th>Action</th><th>Target</th><th>Outcome</th><th>Source</th><th>Details</th></tr></thead>
+  <tbody>
+  {{range .Data.Rows}}
+    <tr>
+      <td><code title="hash {{.Hash}}">{{.Seq}}</code></td>
+      <td>{{fmtTime .Time}}</td>
+      <td>{{if .Actor}}{{.Actor}}{{else}}<span class="muted">—</span>{{end}}</td>
+      <td><code>{{.Action}}</code></td>
+      <td>{{.Target}}</td>
+      <td><span class="status audit-{{.Outcome}}">{{.Outcome}}</span>{{with .Reason}}<div class="muted">{{.}}</div>{{end}}</td>
+      <td>{{.SourceIP}}{{with .RequestID}}<div class="muted"><code>{{.}}</code></div>{{end}}</td>
+      <td>{{if .DetailsJSON}}<details><summary>view</summary><pre>{{.DetailsJSON}}</pre></details>{{end}}</td>
+    </tr>
+  {{end}}
+  </tbody>
+</table>
+<nav class="pager">
+  {{if .Data.PrevURL}}<a href="{{.Data.PrevURL}}">← Newer</a>{{end}}
+  <span class="muted">Page {{.Data.Page}} of {{.Data.Pages}}</span>
+  {{if .Data.NextURL}}<a href="{{.Data.NextURL}}">Older →</a>{{end}}
+</nav>
+{{else}}<p class="muted">No audit events match.</p>{{end}}
+{{end}}
+
+{{define "verify-badge"}}
+{{with .Data}}
+  {{if .Err}}<span class="status status-failed" title="{{.Err}}">chain check error</span>
+  {{else if .Result.OK}}<span class="status status-succeeded" title="head {{.Result.HeadHash}} · verified {{fmtTime .Result.VerifiedAt}}">✓ chain verified ({{.Result.Checked}} events, checked {{fmtTime .Result.VerifiedAt}})</span>
+  {{else}}<span class="status status-failed" title="{{.Result.Problem}}">✗ chain broken at #{{.Result.BrokenSeq}}: {{.Result.Problem}}</span>{{end}}
+  <a href="/audit/verify?force=1" hx-get="/audit/verify?force=1" hx-target="#audit-verify" hx-swap="innerHTML">re-check</a>
+{{end}}
+{{end}}
