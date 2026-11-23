@@ -65,3 +65,38 @@ func TestBuiltinRoles(t *testing.T) {
 		t.Error("RolePermissions returned shared slice")
 	}
 }
+
+func TestHelpers(t *testing.T) {
+	if !slices.Equal(BuiltinNames(), []string{RoleAdmin, RoleOperator, RoleBuilder, RoleViewer}) {
+		t.Fatalf("BuiltinNames = %v", BuiltinNames())
+	}
+	for _, n := range BuiltinNames() {
+		if _, ok := BuiltinRoles[n]; !ok {
+			t.Errorf("%s missing from BuiltinRoles", n)
+		}
+	}
+	tests := []struct {
+		name string
+		got  []Permission
+		want []Permission
+	}{
+		{"normalize dedups, orders, drops unknown", Normalize([]Permission{JobsView, "x.y", ImagesView, JobsView}), []Permission{ImagesView, JobsView}},
+		{"normalize empty", Normalize(nil), []Permission{}},
+		{"intersect", Intersect([]Permission{DeployRun, JobsView, AuditView}, []Permission{AuditView, DeployRun}), []Permission{DeployRun, AuditView}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !slices.Equal(tt.got, tt.want) {
+				t.Fatalf("got %v, want %v", tt.got, tt.want)
+			}
+		})
+	}
+	if !IsBuiltin("admin") || IsBuiltin("Auditors") {
+		t.Error("IsBuiltin")
+	}
+	for _, p := range All {
+		if p.Description() == string(p) {
+			t.Errorf("%s has no description", p)
+		}
+	}
+}

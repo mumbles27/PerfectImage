@@ -5,7 +5,10 @@
 // role storage, custom roles and the roles UI are added by the auth agent.
 package rbac
 
-import "slices"
+import (
+	"slices"
+	"strings"
+)
 
 // Permission is a dotted capability string, "<area>.<verb>".
 type Permission string
@@ -76,3 +79,71 @@ func (p Permission) Valid() bool { return slices.Contains(All, p) }
 
 // String implements fmt.Stringer.
 func (p Permission) String() string { return string(p) }
+
+// builtinOrder is the display order of the built-in roles.
+var builtinOrder = []string{RoleAdmin, RoleOperator, RoleBuilder, RoleViewer}
+
+// BuiltinNames returns the built-in role names in display order.
+func BuiltinNames() []string { return slices.Clone(builtinOrder) }
+
+// IsBuiltin reports whether name is a built-in role (case-insensitive).
+func IsBuiltin(name string) bool {
+	for _, r := range builtinOrder {
+		if strings.EqualFold(r, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// Normalize returns the valid permissions of ps, deduplicated and sorted in
+// the display order of All.
+func Normalize(ps []Permission) []Permission {
+	out := make([]Permission, 0, len(ps))
+	for _, p := range All {
+		if slices.Contains(ps, p) {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// Intersect returns the permissions present in both a and b, normalized.
+func Intersect(a, b []Permission) []Permission {
+	var out []Permission
+	for _, p := range a {
+		if slices.Contains(b, p) {
+			out = append(out, p)
+		}
+	}
+	return Normalize(out)
+}
+
+// descriptions are human-readable labels for the permission matrix.
+var descriptions = map[Permission]string{
+	ImagesView:     "View image templates and builds",
+	ImagesBuild:    "Start image builds",
+	AppsManage:     "Manage installable applications",
+	CatalogView:    "View the catalog",
+	CatalogManage:  "Edit the catalog",
+	DeployView:     "View deployments",
+	DeployRun:      "Deploy VMs and install apps",
+	JobsView:       "View jobs and logs",
+	JobsCancel:     "Cancel jobs",
+	ProxmoxManage:  "Manage Proxmox connections",
+	UsersManage:    "Manage users",
+	RolesManage:    "Manage roles",
+	AuditView:      "View the audit log",
+	SIEMManage:     "Manage SIEM forwarding",
+	BackupRun:      "Run backups and restores",
+	SettingsView:   "View settings",
+	SettingsManage: "Change settings (including SSO)",
+}
+
+// Description returns a human-readable label for p (p itself if unknown).
+func (p Permission) Description() string {
+	if d, ok := descriptions[p]; ok {
+		return d
+	}
+	return string(p)
+}
