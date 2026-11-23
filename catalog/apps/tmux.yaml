@@ -1,0 +1,13 @@
+id: tmux
+name: tmux
+category: utility
+description: Terminal multiplexer.
+homepage: https://github.com/tmux/tmux
+install:
+  linux:
+    - apt:
+        packages: [tmux]
+      verify: command -v tmux
+    - dnf:
+        packages: [tmux]
+      verify: command -v tmux

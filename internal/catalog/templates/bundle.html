@@ -1,0 +1,32 @@
+{{define "head"}}<link rel="stylesheet" href="/catalog/static/catalog.css">{{end}}
+{{define "content"}}
+{{with .Data.Bundle}}
+<p><a href="/catalog?tab=bundles">&larr; Bundles</a></p>
+<h1>{{.Name}}</h1>
+{{with .Description}}<p>{{.}}</p>{{end}}
+<dl class="meta">
+  <dt>ID</dt><dd><code>{{.ID}}</code></dd>
+  <dt>Source</dt><dd><code>{{.Source}}</code>{{if $.Data.IsOverride}} <span class="badge override">override</span>{{end}}</dd>
+</dl>
+<h2>Apps</h2>
+<div class="grid">
+{{range $.Data.BundleApps}}
+  <a class="item" href="/catalog/apps/{{.ID}}"><h3>{{.Name}}</h3><div class="badges">{{range .OSFamilies}}<span class="badge os-{{.}}">{{.}}</span>{{end}}</div></a>
+{{end}}
+</div>
+{{if $.Data.CanManage}}
+<div class="actions">
+  <a href="/catalog/bundles/{{.ID}}/edit">Edit{{if not $.Data.IsOverride}} (creates an override){{end}}</a>
+  <a href="/catalog/bundles/{{.ID}}/clone">Clone</a>
+  {{if $.Data.IsOverride}}
+  <form method="post" action="/catalog/bundles/{{.ID}}/revert" class="inline">
+    {{with $.CSRFToken}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
+    <button type="submit" class="danger">Delete override</button>
+  </form>
+  {{end}}
+</div>
+{{end}}
+<h2>Definition</h2>
+<pre class="log">{{$.Data.Raw}}</pre>
+{{end}}
+{{end}}

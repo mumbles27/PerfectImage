@@ -1,0 +1,35 @@
+{{define "head"}}<link rel="stylesheet" href="/catalog/static/catalog.css">{{end}}
+{{define "content"}}
+{{with .Data.App}}
+<p><a href="/catalog?tab=apps">&larr; Apps</a></p>
+<h1>{{.Name}}</h1>
+{{with .Description}}<p>{{.}}</p>{{end}}
+<dl class="meta">
+  <dt>ID</dt><dd><code>{{.ID}}</code></dd>
+  <dt>Category</dt><dd>{{.Category}}</dd>
+  {{with .Homepage}}<dt>Homepage</dt><dd><a href="{{.}}" rel="noopener noreferrer" target="_blank">{{.}}</a></dd>{{end}}
+  <dt>Depends on</dt><dd>{{range $i, $d := .DependsOn}}{{if $i}}, {{end}}<a href="/catalog/apps/{{$d}}">{{$d}}</a>{{else}}nothing{{end}}</dd>
+  <dt>Reboot</dt><dd>{{if .RebootRequired}}required after install{{else}}not required{{end}}</dd>
+  <dt>In bundles</dt><dd>{{range $i, $b := $.Data.UsedBy}}{{if $i}}, {{end}}<a href="/catalog/bundles/{{$b.ID}}">{{$b.Name}}</a>{{else}}none{{end}}</dd>
+  <dt>Source</dt><dd><code>{{.Source}}</code>{{if $.Data.IsOverride}} <span class="badge override">override</span>{{end}}</dd>
+</dl>
+{{if .Install.Windows}}<h2>Windows methods (in order)</h2>
+<ol class="methods">{{range .Install.Windows}}<li><strong>{{.Kind}}</strong> — verify <code>{{.Verify}}</code></li>{{end}}</ol>{{end}}
+{{if .Install.Linux}}<h2>Linux methods (in order)</h2>
+<ol class="methods">{{range .Install.Linux}}<li><strong>{{.Kind}}</strong>{{with .Distros}} ({{range $i, $d := .}}{{if $i}}, {{end}}{{$d}}{{end}} only){{end}} — verify <code>{{.Verify}}</code></li>{{end}}</ol>{{end}}
+{{if $.Data.CanManage}}
+<div class="actions">
+  <a href="/catalog/apps/{{.ID}}/edit">Edit{{if not $.Data.IsOverride}} (creates an override){{end}}</a>
+  <a href="/catalog/apps/{{.ID}}/clone">Clone</a>
+  {{if $.Data.IsOverride}}
+  <form method="post" action="/catalog/apps/{{.ID}}/revert" class="inline">
+    {{with $.CSRFToken}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
+    <button type="submit" class="danger">Delete override</button>
+  </form>
+  {{end}}
+</div>
+{{end}}
+<h2>Definition</h2>
+<pre class="log">{{$.Data.Raw}}</pre>
+{{end}}
+{{end}}

@@ -1,0 +1,4 @@
+id: sysadmin
+name: Sysadmin tools
+description: Remote access, diagnostics, archiving and shell utilities for administrators.
+apps: [putty, winscp, sysinternals, wireshark, 7zip, notepad-plus-plus, openssh-client, htop, tmux, jq, curl, wget]

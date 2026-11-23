@@ -1,0 +1,25 @@
+id: jetbrains-toolbox
+name: JetBrains Toolbox
+category: dev
+description: Installer and updater for JetBrains IDEs.
+homepage: https://www.jetbrains.com/toolbox-app/
+install:
+  windows:
+    - winget:
+        id: JetBrains.Toolbox
+      verify: 'if ((Test-Path "$env:LOCALAPPDATA\JetBrains\Toolbox\bin\jetbrains-toolbox.exe") -or (Test-Path "$env:ProgramFiles\JetBrains\JetBrains Toolbox\bin\jetbrains-toolbox.exe")) { exit 0 } else { exit 1 }'
+    - choco:
+        package: jetbrainstoolbox
+      verify: 'if ((Test-Path "$env:LOCALAPPDATA\JetBrains\Toolbox\bin\jetbrains-toolbox.exe") -or (Test-Path "$env:ProgramFiles\JetBrains\JetBrains Toolbox\bin\jetbrains-toolbox.exe")) { exit 0 } else { exit 1 }'
+  linux:
+    - shell:
+        script: |
+          curl -fsSL -o /tmp/jetbrains-toolbox.tar.gz 'https://data.services.jetbrains.com/products/download?platform=linux&code=TBA' &&
+            rm -rf /opt/jetbrains-toolbox &&
+            mkdir -p /opt/jetbrains-toolbox &&
+            tar -xzf /tmp/jetbrains-toolbox.tar.gz -C /opt/jetbrains-toolbox --strip-components=1 &&
+            rm -f /tmp/jetbrains-toolbox.tar.gz &&
+            tb="$(find /opt/jetbrains-toolbox -type f -name jetbrains-toolbox | head -n 1)" &&
+            test -n "$tb" &&
+            ln -sf "$tb" /usr/local/bin/jetbrains-toolbox
+      verify: test -x /usr/local/bin/jetbrains-toolbox

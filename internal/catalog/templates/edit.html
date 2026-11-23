@@ -1,0 +1,29 @@
+{{define "head"}}<link rel="stylesheet" href="/catalog/static/catalog.css">{{end}}
+{{define "content"}}
+{{with .Data}}
+<p><a href="/catalog?tab={{if eq (print .Kind) "bundle"}}bundles{{else}}apps{{end}}">&larr; Catalog</a></p>
+<h1>{{$.Title}}</h1>
+<p class="hint">Saved to <code>{{if .WriteDir}}{{.WriteDir}}{{else}}(no override directory configured){{end}}</code>. Definitions are validated before they are written; see docs/catalog.md for the schema.</p>
+<form method="post" action="{{.Action}}">
+  {{with $.CSRFToken}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
+  <input type="hidden" name="mode" value="{{.Mode}}">
+  <input type="hidden" name="original_id" value="{{.OriginalID}}">
+  <textarea class="yaml" name="yaml" spellcheck="false" aria-label="YAML definition">{{.YAML}}</textarea>
+  <div id="edit-problems">{{template "problems" $}}</div>
+  <div class="actions">
+    <button type="submit" name="action" value="save">Save</button>
+    <button type="submit" name="action" value="validate" class="secondary" hx-post="{{.Action}}" hx-vals='{"action": "validate"}' hx-target="#edit-problems" hx-swap="innerHTML">Validate</button>
+  </div>
+</form>
+{{end}}
+{{end}}
+
+{{define "problems"}}
+{{with .Data}}
+{{if .Problems}}
+<div class="problems" role="alert"><strong>{{len .Problems}} problem(s):</strong>
+  <ul>{{range .Problems}}<li><code>{{if .Line}}line {{.Line}}: {{end}}{{.Message}}</code></li>{{end}}</ul>
+</div>
+{{else if .Validated}}<div class="ok-note">Definition is valid.</div>{{end}}
+{{end}}
+{{end}}

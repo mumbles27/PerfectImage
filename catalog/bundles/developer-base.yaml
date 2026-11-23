@@ -1,0 +1,4 @@
+id: developer-base
+name: Developer base
+description: Core developer tooling - Git, VS Code, Python, Node.js, Go, Docker, jq and curl.
+apps: [git, vscode, python, nodejs, go, docker, jq, curl]

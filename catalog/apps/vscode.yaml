@@ -1,0 +1,34 @@
+id: vscode
+name: Visual Studio Code
+category: dev
+description: Extensible source-code editor from Microsoft.
+homepage: https://code.visualstudio.com
+install:
+  windows:
+    - winget:
+        id: Microsoft.VisualStudioCode
+      verify: 'if (Test-Path "$env:ProgramFiles\Microsoft VS Code\Code.exe") { exit 0 } else { exit 1 }'
+    - choco:
+        package: vscode
+      verify: 'if (Test-Path "$env:ProgramFiles\Microsoft VS Code\Code.exe") { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [code]
+        repo:
+          name: vscode
+          url: https://packages.microsoft.com/repos/code
+          key_url: https://packages.microsoft.com/keys/microsoft.asc
+          suite: stable
+          components: main
+      verify: command -v code
+    - dnf:
+        packages: [code]
+        repo:
+          name: vscode
+          url: https://packages.microsoft.com/yumrepos/vscode
+          key_url: https://packages.microsoft.com/keys/microsoft.asc
+      verify: command -v code
+    - snap:
+        name: code
+        classic: true
+      verify: snap list code >/dev/null 2>&1

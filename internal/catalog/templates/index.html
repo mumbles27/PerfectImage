@@ -1,0 +1,85 @@
+{{define "head"}}<link rel="stylesheet" href="/catalog/static/catalog.css">{{end}}
+{{define "content"}}
+{{with .Data}}
+<h1>Catalog</h1>
+<nav class="tabs" aria-label="Catalog sections">
+  <a href="/catalog?tab=images"{{if eq .Tab "images"}} class="active"{{end}}>Images ({{index .Total 0}})</a>
+  <a href="/catalog?tab=apps"{{if eq .Tab "apps"}} class="active"{{end}}>Apps ({{index .Total 1}})</a>
+  <a href="/catalog?tab=bundles"{{if eq .Tab "bundles"}} class="active"{{end}}>Bundles ({{index .Total 2}})</a>
+</nav>
+<form class="toolbar" method="get" action="/catalog" hx-get="/catalog" hx-target="#catalog-results" hx-trigger="input changed delay:300ms from:input[name=q], change from:select, submit" hx-push-url="true">
+  <input type="hidden" name="tab" value="{{.Tab}}">
+  <label>Search <input type="search" name="q" value="{{.Q}}" placeholder="name, id, description…" autocomplete="off"></label>
+  {{if ne .Tab "bundles"}}
+  <label>OS
+    <select name="os">
+      <option value="">Any</option>
+      <option value="windows"{{if eq .OS "windows"}} selected{{end}}>Windows</option>
+      <option value="linux"{{if eq .OS "linux"}} selected{{end}}>Linux</option>
+    </select>
+  </label>
+  {{end}}
+  {{if eq .Tab "apps"}}
+  <label>Category
+    <select name="category">
+      <option value="">Any</option>
+      {{range .Categories}}<option value="{{.}}"{{if eq . $.Data.Category}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+  </label>
+  {{end}}
+  <button type="submit">Search</button>
+  <span class="spacer"></span>
+  {{if .CanManage}}
+    {{if eq .Tab "apps"}}<a href="/catalog/apps/new">+ New app</a>{{end}}
+    {{if eq .Tab "bundles"}}<a href="/catalog/bundles/new">+ New bundle</a>{{end}}
+  {{end}}
+</form>
+{{if .Problems}}
+<details class="problems">
+  <summary>{{len .Problems}} catalog problem(s)</summary>
+  <ul>{{range .Problems}}<li><code>{{.String}}</code></li>{{end}}</ul>
+  <form method="post" action="/catalog/reload" class="inline">
+    {{with $.CSRFToken}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
+    <button type="submit" class="secondary">Reload catalog</button>
+  </form>
+</details>
+{{end}}
+<div id="catalog-results">{{template "results" $}}</div>
+{{end}}
+{{end}}
+
+{{define "results"}}
+{{with .Data}}
+{{if eq .Tab "images"}}
+  {{if .Images}}<div class="grid">
+  {{range .Images}}
+  <a class="item" href="/catalog/images/{{.ID}}">
+    <h3>{{.Name}}</h3>
+    <p>{{.Description}}</p>
+    <div class="badges"><span class="badge os-{{.OSFamily}}">{{.OSFamily}}</span><span class="badge">{{.Firmware}}</span>{{if .TPM}}<span class="badge">tpm</span>{{end}}{{range .Tags}}<span class="badge">{{.}}</span>{{end}}</div>
+  </a>
+  {{end}}
+  </div>{{else}}<p class="muted">No images match.</p>{{end}}
+{{else if eq .Tab "bundles"}}
+  {{if .Bundles}}<div class="grid">
+  {{range .Bundles}}
+  <a class="item" href="/catalog/bundles/{{.ID}}">
+    <h3>{{.Name}}</h3>
+    <p>{{.Description}}</p>
+    <p>{{len .Apps}} apps</p>
+  </a>
+  {{end}}
+  </div>{{else}}<p class="muted">No bundles match.</p>{{end}}
+{{else}}
+  {{if .Apps}}<div class="grid">
+  {{range .Apps}}
+  <a class="item" href="/catalog/apps/{{.ID}}">
+    <h3>{{.Name}}</h3>
+    <p>{{.Description}}</p>
+    <div class="badges"><span class="badge">{{.Category}}</span>{{range .OSFamilies}}<span class="badge os-{{.}}">{{.}}</span>{{end}}{{if not .Source.Embedded}}<span class="badge override">override</span>{{end}}</div>
+  </a>
+  {{end}}
+  </div>{{else}}<p class="muted">No apps match.</p>{{end}}
+{{end}}
+{{end}}
+{{end}}

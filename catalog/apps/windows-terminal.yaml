@@ -1,0 +1,13 @@
+id: windows-terminal
+name: Windows Terminal
+category: dev
+description: Modern tabbed terminal for Windows.
+homepage: https://github.com/microsoft/terminal
+install:
+  windows:
+    - winget:
+        id: Microsoft.WindowsTerminal
+      verify: 'if (Get-AppxPackage -AllUsers -Name Microsoft.WindowsTerminal) { exit 0 } else { exit 1 }'
+    - choco:
+        package: microsoft-windows-terminal
+      verify: 'if (Get-AppxPackage -AllUsers -Name Microsoft.WindowsTerminal) { exit 0 } else { exit 1 }'

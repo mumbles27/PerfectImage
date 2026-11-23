@@ -1,0 +1,20 @@
+id: curl
+name: curl
+category: utility
+description: Command-line tool for transferring data with URLs.
+homepage: https://curl.se
+install:
+  windows:
+    - winget:
+        id: cURL.cURL
+      verify: 'if ((Test-Path "$env:ProgramFiles\WinGet\Links\curl.exe") -or (Test-Path "$env:ProgramData\chocolatey\bin\curl.exe") -or (Test-Path "$env:SystemRoot\System32\curl.exe")) { exit 0 } else { exit 1 }'
+    - choco:
+        package: curl
+      verify: 'if ((Test-Path "$env:ProgramFiles\WinGet\Links\curl.exe") -or (Test-Path "$env:ProgramData\chocolatey\bin\curl.exe") -or (Test-Path "$env:SystemRoot\System32\curl.exe")) { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [curl]
+      verify: command -v curl
+    - dnf:
+        packages: [curl]
+      verify: command -v curl

@@ -1,0 +1,4 @@
+id: java-dev
+name: Java development
+description: OpenJDK 21 with Git, VS Code and JetBrains Toolbox.
+apps: [openjdk, git, vscode, jetbrains-toolbox]

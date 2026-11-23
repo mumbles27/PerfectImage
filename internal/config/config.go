@@ -243,6 +243,10 @@ func (c *Config) resolvePaths(base string) {
 			abs(p)
 		}
 	}
+	for i := range c.Proxmox.Clusters {
+		abs(&c.Proxmox.Clusters[i].CAFile)
+		abs(&c.Proxmox.Clusters[i].TokenSecretFile)
+	}
 }
 
 // TLSDir is where auto-generated TLS material lives.

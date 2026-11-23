@@ -1,0 +1,24 @@
+id: windows-11
+name: Windows 11 Pro
+description: Windows 11 Pro with virtio drivers and the QEMU guest agent, generalized with Sysprep.
+os_family: windows
+os: windows
+version: "11"
+arch: amd64
+iso:
+  iso_file: local:iso/windows-11.iso
+  virtio_iso_file: local:iso/virtio-win.iso
+firmware: uefi
+tpm: true
+resources:
+  cores: 4
+  memory: 8192
+  disk: 80G
+  storage: local-lvm
+  bridge: vmbr0
+communicator: winrm
+default_apps:
+  - 7zip
+tags:
+  - windows
+  - desktop

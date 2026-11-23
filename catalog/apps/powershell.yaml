@@ -1,0 +1,34 @@
+id: powershell
+name: PowerShell 7
+category: dev
+description: Cross-platform PowerShell 7 shell and scripting language.
+homepage: https://learn.microsoft.com/powershell/
+install:
+  windows:
+    - winget:
+        id: Microsoft.PowerShell
+      verify: 'if (Test-Path "$env:ProgramFiles\PowerShell\7\pwsh.exe") { exit 0 } else { exit 1 }'
+    - choco:
+        package: powershell-core
+      verify: 'if (Test-Path "$env:ProgramFiles\PowerShell\7\pwsh.exe") { exit 0 } else { exit 1 }'
+  linux:
+    - shell:
+        script: |
+          . /etc/os-release &&
+            curl -fsSL -o /tmp/packages-microsoft-prod.deb "https://packages.microsoft.com/config/${ID}/${VERSION_ID}/packages-microsoft-prod.deb" &&
+            dpkg -i /tmp/packages-microsoft-prod.deb &&
+            apt-get update &&
+            DEBIAN_FRONTEND=noninteractive apt-get install -y powershell
+      distros: [debian]
+      verify: command -v pwsh
+    - dnf:
+        packages: [powershell]
+        repo:
+          name: microsoft-prod
+          url: https://packages.microsoft.com/rhel/$releasever/prod/
+          key_url: https://packages.microsoft.com/keys/microsoft.asc
+      verify: command -v pwsh
+    - snap:
+        name: powershell
+        classic: true
+      verify: snap list powershell >/dev/null 2>&1

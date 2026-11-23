@@ -1,0 +1,31 @@
+#cloud-config
+# Ubuntu autoinstall answers, rendered by Packer's templatefile().
+autoinstall:
+  version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  timezone: Etc/UTC
+  storage:
+    layout:
+      name: direct
+  ssh:
+    install-server: true
+    allow-pw: true
+  packages:
+    - qemu-guest-agent
+    - cloud-init
+    - openssh-server
+    - sudo
+  updates: security
+  late-commands:
+    - curtin in-target -- systemctl enable qemu-guest-agent
+  user-data:
+    disable_root: true
+    users:
+      - name: ${username}
+        groups: [sudo]
+        shell: /bin/bash
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        lock_passwd: false
+        plain_text_passwd: ${jsonencode(password)}

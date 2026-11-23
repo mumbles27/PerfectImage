@@ -1,0 +1,22 @@
+{{define "head"}}<link rel="stylesheet" href="/catalog/static/catalog.css">{{end}}
+{{define "content"}}
+{{with .Data.Image}}
+<p><a href="/catalog?tab=images">&larr; Images</a></p>
+<h1>{{.Name}}</h1>
+{{with .Description}}<p>{{.}}</p>{{end}}
+<dl class="meta">
+  <dt>ID</dt><dd><code>{{.ID}}</code></dd>
+  <dt>OS</dt><dd>{{.OSFamily}} · {{.OS}} {{.Version}}{{with .DistroFamily}} ({{.}} family){{end}} · {{.Arch}}</dd>
+  <dt>Firmware</dt><dd>{{.Firmware}}{{if .TPM}} + TPM 2.0{{end}}</dd>
+  <dt>Communicator</dt><dd>{{.Communicator}}</dd>
+  <dt>ISO</dt><dd>{{if .ISO.File}}<code>{{.ISO.File}}</code> (on Proxmox storage){{else}}<code>{{.ISO.URL}}</code><br><span class="hint">checksum {{.ISO.Checksum}}</span>{{end}}{{with .ISO.VirtioFile}}<br>virtio drivers: <code>{{.}}</code>{{end}}</dd>
+  <dt>Resources</dt><dd>{{.Resources.Cores}} cores · {{.Resources.Memory}} MiB · {{.Resources.Disk}} on {{.Resources.Storage}} · bridge {{.Resources.Bridge}}</dd>
+  <dt>Default apps</dt><dd>{{range $i, $a := .DefaultApps}}{{if $i}}, {{end}}<a href="/catalog/apps/{{$a}}">{{$a}}</a>{{else}}none{{end}}</dd>
+  <dt>Tags</dt><dd>{{range .Tags}}<span class="badge">{{.}}</span> {{end}}</dd>
+  <dt>Source</dt><dd><code>{{.Source}}</code></dd>
+</dl>
+<p><a href="/build?image={{.ID}}">Build this image &rarr;</a></p>
+<h2>image.yaml</h2>
+<pre class="log">{{$.Data.Raw}}</pre>
+{{end}}
+{{end}}

@@ -27,3 +27,6 @@ packer_cache/
 .vscode/
 *.swp
 .DS_Store
+
+# Packer golden test fixtures (fake values only).
+!internal/packer/testdata/golden/*.pkrvars.hcl

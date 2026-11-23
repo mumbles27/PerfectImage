@@ -1,0 +1,83 @@
+{{define "head"}}<link rel="stylesheet" href="/proxmox/static/forms.css">{{end}}
+
+{{define "content"}}
+<h1>Proxmox clusters</h1>
+{{with .Data.Notice}}<div class="alert alert-ok" role="status">{{.}}</div>{{end}}
+{{if .Data.Clusters}}
+<table class="table">
+  <thead><tr><th>Name</th><th>Endpoint</th><th>Token</th><th>TLS</th><th>Defaults</th><th></th></tr></thead>
+  <tbody>
+  {{range .Data.Clusters}}
+  <tr>
+    <td><a href="/settings/proxmox/{{.ID}}">{{.Name}}</a>{{if eq .Source "config"}} <span class="badge">config</span>{{end}}</td>
+    <td><code>{{.Endpoint}}</code></td>
+    <td>{{if .TokenID}}<code>{{.TokenID}}</code>{{else}}<span class="muted">none</span>{{end}}
+        {{if not .HasSecret}} <span class="badge badge-warn">no secret</span>{{end}}</td>
+    <td>{{if .InsecureSkipVerify}}<span class="badge badge-warn">{{.TLSMode}}</span>{{else}}{{.TLSMode}}{{end}}</td>
+    <td class="small">{{.DefaultNode}} {{.DefaultStorage}} {{.DefaultBridge}} {{.DefaultPool}}</td>
+    <td>
+      <button type="button" class="secondary" hx-post="/settings/proxmox/{{.ID}}/test" hx-target="#test-{{.ID}}" hx-swap="innerHTML">Test</button>
+      <a href="/settings/proxmox/{{.ID}}">Edit</a>
+    </td>
+  </tr>
+  <tr><td colspan="6" id="test-{{.ID}}" class="small"></td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<p class="muted">No clusters yet. Add one below. See <code>docs/proxmox.md</code> for creating a least-privilege API token.</p>{{end}}
+
+<h2>Add cluster</h2>
+<form class="form" method="post" action="/settings/proxmox">
+  {{with $.CSRFToken}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
+  {{template "cluster-form" .Data.Form}}
+  <div id="test-result"></div>
+  <div class="actions">
+    <button type="submit">Add cluster</button>
+    <button type="button" class="secondary" hx-post="/settings/proxmox/test" hx-include="closest form" hx-target="#test-result">Test connection</button>
+    <span class="htmx-indicator muted">testing…</span>
+  </div>
+</form>
+{{end}}
+{{define "cluster-form"}}
+{{with .Error}}<div class="alert alert-error" role="alert">{{.}}</div>{{end}}
+<div class="grid">
+  <label>Name<input name="name" value="{{.In.Name}}" required maxlength="63" pattern="[A-Za-z0-9][A-Za-z0-9._\-]*"></label>
+  <label>API endpoint<input name="endpoint" value="{{.In.Endpoint}}" required placeholder="https://pve.example.com:8006/api2/json"></label>
+  <label>Token ID<input name="token_id" value="{{.In.TokenID}}" placeholder="perfectimage@pve!deploy" autocomplete="off"></label>
+  <label>Token secret
+    <input name="token_secret" type="password" autocomplete="new-password" placeholder="{{if .HasToken}}(stored – leave blank to keep){{else}}xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx{{end}}">
+    <span class="hint">Sealed in the database; never shown again.</span>
+  </label>
+</div>
+<fieldset>
+  <legend>TLS verification</legend>
+  <div class="grid">
+    <label>SHA-256 fingerprint<input name="fingerprint" value="{{.In.Fingerprint}}" placeholder="AA:BB:CC:…" autocomplete="off">
+      <span class="hint">Pins the server certificate (<code>pvenode cert info</code>).</span></label>
+    <label>CA file (on this server)<input name="ca_file" value="{{.In.CAFile}}" placeholder="/etc/perfectimage/pve-ca.pem"></label>
+    <label class="wide">CA bundle (PEM)<textarea name="ca_pem" rows="4" placeholder="-----BEGIN CERTIFICATE-----">{{.In.CAPEM}}</textarea>
+      <span class="hint">Trusted instead of the system roots. Proxmox's cluster CA is <code>/etc/pve/pve-root-ca.pem</code>.</span></label>
+    <label class="check wide"><input type="checkbox" name="insecure_skip_verify" value="1"{{if .In.InsecureSkipVerify}} checked{{end}}>
+      Skip TLS verification (INSECURE – lab only; the token can be intercepted)</label>
+  </div>
+</fieldset>
+<fieldset>
+  <legend>Deploy defaults</legend>
+  <div class="grid">
+    <label>Node<input name="default_node" value="{{.In.DefaultNode}}" placeholder="pve1"></label>
+    <label>Storage<input name="default_storage" value="{{.In.DefaultStorage}}" placeholder="local-lvm"></label>
+    <label>Bridge<input name="default_bridge" value="{{.In.DefaultBridge}}" placeholder="vmbr0"></label>
+    <label>Pool<input name="default_pool" value="{{.In.DefaultPool}}" placeholder="perfectimage"></label>
+  </div>
+</fieldset>
+{{end}}
+
+{{define "test-result"}}
+{{with .Data}}
+{{if .OK}}<div class="alert alert-ok" role="status">Connected to Proxmox VE {{.Version}}.
+  {{if .Nodes}}Nodes: {{range $i, $n := .Nodes}}{{if $i}}, {{end}}{{$n}}{{end}}.{{end}}
+  {{with .Message}}<br><span class="error-text">{{.}}</span>{{end}}</div>
+{{else}}<div class="alert alert-error" role="alert">Connection failed: {{.Message}}
+  {{with .Fingerprint}}<br>Presented fingerprint: <code>{{.}}</code>{{end}}</div>{{end}}
+{{end}}
+{{end}}

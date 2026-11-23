@@ -1,0 +1,26 @@
+id: dotnet-sdk
+name: .NET SDK 10
+category: dev
+description: .NET 10 LTS software development kit.
+homepage: https://dotnet.microsoft.com
+install:
+  windows:
+    - winget:
+        id: Microsoft.DotNet.SDK.10
+      verify: 'if (Test-Path "$env:ProgramFiles\dotnet\sdk\10.*") { exit 0 } else { exit 1 }'
+    - choco:
+        package: dotnet-10.0-sdk
+      verify: 'if (Test-Path "$env:ProgramFiles\dotnet\sdk\10.*") { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [dotnet-sdk-10.0]
+      verify: dotnet --list-sdks | grep -q '^10\.'
+    - dnf:
+        packages: [dotnet-sdk-10.0]
+      verify: dotnet --list-sdks | grep -q '^10\.'
+    - shell:
+        script: |
+          curl -fsSL -o /tmp/dotnet-install.sh https://dot.net/v1/dotnet-install.sh &&
+            bash /tmp/dotnet-install.sh --channel 10.0 --install-dir /usr/share/dotnet &&
+            ln -sf /usr/share/dotnet/dotnet /usr/local/bin/dotnet
+      verify: dotnet --list-sdks | grep -q '^10\.'
