@@ -122,6 +122,12 @@ type deployment struct {
 func (r *Runner) Deploy(ctx context.Context, jobID, actor string, req Request, log Logger) (*Result, error) {
 	r.defaults()
 	d := &deployment{r: r, req: req, jobID: jobID, actor: actor, log: log}
+	// Make sure the history row exists before Finished updates it, even if
+	// the job starts before the enqueuing request records it (Queued is
+	// idempotent).
+	if herr := r.History.Queued(ctx, jobID, req, actor); herr != nil {
+		r.Log.Warn("deploy history", "job_id", jobID, "err", herr)
+	}
 	res, err := d.run(ctx)
 
 	cleaned := false

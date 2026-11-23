@@ -10,6 +10,7 @@ package main
 import (
 	_ "github.com/mumbles27/PerfectImage/internal/auth/authplugin"
 	_ "github.com/mumbles27/PerfectImage/internal/deploy"
+	_ "github.com/mumbles27/PerfectImage/internal/integration"
 	_ "github.com/mumbles27/PerfectImage/internal/packer"
 	_ "github.com/mumbles27/PerfectImage/internal/proxmox"
 )
