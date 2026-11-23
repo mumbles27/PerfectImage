@@ -460,7 +460,10 @@ func (d *deployment) waitAgent(ctx context.Context, n int) error {
 			d.step(n, "Guest agent is up after %s", time.Since(start).Round(time.Second))
 			return nil
 		}
-		if fatalPVE(err) || ctx.Err() != nil {
+		if cerr := ctx.Err(); cerr != nil {
+			return fmt.Errorf("guest agent: %w (last error: %v)", cerr, err)
+		}
+		if fatalPVE(err) {
 			return fmt.Errorf("guest agent: %w", err)
 		}
 		if time.Now().After(deadline) {
