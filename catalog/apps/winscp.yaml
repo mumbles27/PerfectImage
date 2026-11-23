@@ -1,0 +1,13 @@
+id: winscp
+name: WinSCP
+category: utility
+description: SFTP, SCP and FTP client for Windows.
+homepage: https://winscp.net
+install:
+  windows:
+    - winget:
+        id: WinSCP.WinSCP
+      verify: 'if ((Test-Path "$env:ProgramFiles\WinSCP\WinSCP.exe") -or (Test-Path "${env:ProgramFiles(x86)}\WinSCP\WinSCP.exe")) { exit 0 } else { exit 1 }'
+    - choco:
+        package: winscp
+      verify: 'if ((Test-Path "$env:ProgramFiles\WinSCP\WinSCP.exe") -or (Test-Path "${env:ProgramFiles(x86)}\WinSCP\WinSCP.exe")) { exit 0 } else { exit 1 }'

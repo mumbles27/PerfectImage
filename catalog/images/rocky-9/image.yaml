@@ -1,0 +1,27 @@
+id: rocky-9
+name: Rocky Linux 9
+description: Minimal Rocky Linux 9 with cloud-init and the QEMU guest agent.
+os_family: linux
+os: rocky
+version: "9"
+distro_family: rhel
+arch: amd64
+iso:
+  url: https://download.rockylinux.org/pub/rocky/9/isos/x86_64/Rocky-9-latest-x86_64-boot.iso
+  checksum: file:https://download.rockylinux.org/pub/rocky/9/isos/x86_64/CHECKSUM
+firmware: uefi
+tpm: false
+resources:
+  cores: 2
+  memory: 4096
+  disk: 20G
+  storage: local-lvm
+  bridge: vmbr0
+communicator: ssh
+default_apps:
+  - curl
+  - htop
+tags:
+  - linux
+  - rocky
+  - rhel

@@ -1,0 +1,26 @@
+id: debian-13
+name: Debian 13 (trixie)
+description: Minimal Debian 13 (trixie) with cloud-init and the QEMU guest agent.
+os_family: linux
+os: debian
+version: "13"
+distro_family: debian
+arch: amd64
+iso:
+  url: https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-13.8.0-amd64-netinst.iso
+  checksum: file:https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/SHA256SUMS
+firmware: uefi
+tpm: false
+resources:
+  cores: 2
+  memory: 4096
+  disk: 16G
+  storage: local-lvm
+  bridge: vmbr0
+communicator: ssh
+default_apps:
+  - curl
+  - htop
+tags:
+  - linux
+  - debian

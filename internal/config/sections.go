@@ -1,8 +1,11 @@
 package config
 
 import (
+	"errors"
 	"fmt"
+	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -164,8 +167,28 @@ func (p *ProxmoxConfig) Validate() error {
 type PackerConfig struct {
 	// Binary is the packer executable; empty means look up "packer" in PATH.
 	Binary string `yaml:"binary"`
-	// WorkDir holds per-build working directories.
+	// WorkDir holds per-build working directories, the plugin cache and any
+	// downloaded packer binary.
 	WorkDir string `yaml:"work_dir"`
+	// Version, when set, is the packer release downloaded into WorkDir/bin
+	// if Binary is empty and packer is not in PATH.
+	Version string `yaml:"version"`
+	// VersionSHA256 pins the SHA-256 of the release zip for this platform.
+	// When empty the release's SHA256SUMS file is used.
+	VersionSHA256 string `yaml:"version_sha256"`
+	// ReleasesURL is the HashiCorp releases mirror.
+	ReleasesURL string `yaml:"releases_url"`
+	// BuildTimeout bounds a whole build (init, validate, build).
+	BuildTimeout time.Duration `yaml:"build_timeout"`
+	// InterruptGrace is how long packer gets to clean up after an interrupt
+	// (cancel or timeout) before it is killed.
+	InterruptGrace time.Duration `yaml:"interrupt_grace"`
+	// KeepWorkDir is the per-build workdir cleanup policy:
+	// never | on_failure | always.
+	KeepWorkDir string `yaml:"keep_workdir"`
+	// CatalogReloadInterval is how often catalog.dirs are polled for
+	// changes; a negative value disables hot reload.
+	CatalogReloadInterval time.Duration `yaml:"catalog_reload_interval"`
 }
 
 // ApplyDefaults implements Defaulter.
@@ -173,7 +196,53 @@ func (p *PackerConfig) ApplyDefaults(c *Config) {
 	if p.WorkDir == "" {
 		p.WorkDir = filepath.Join(c.DataDir, "packer")
 	}
+	if p.ReleasesURL == "" {
+		p.ReleasesURL = "https://releases.hashicorp.com"
+	}
+	if p.BuildTimeout == 0 {
+		p.BuildTimeout = 4 * time.Hour
+	}
+	if p.InterruptGrace == 0 {
+		p.InterruptGrace = 2 * time.Minute
+	}
+	if p.KeepWorkDir == "" {
+		p.KeepWorkDir = "on_failure"
+	}
+	if p.CatalogReloadInterval == 0 {
+		p.CatalogReloadInterval = 10 * time.Second
+	}
 }
+
+// Validate implements Validator.
+func (p *PackerConfig) Validate() error {
+	var errs []error
+	switch p.KeepWorkDir {
+	case "never", "on_failure", "always":
+	default:
+		errs = append(errs, fmt.Errorf("packer.keep_workdir %q must be never, on_failure or always", p.KeepWorkDir))
+	}
+	if p.Binary != "" && !filepath.IsAbs(p.Binary) {
+		errs = append(errs, fmt.Errorf("packer.binary %q must be an absolute path", p.Binary))
+	}
+	if p.Version != "" && !packerVersionRE.MatchString(p.Version) {
+		errs = append(errs, fmt.Errorf("packer.version %q must look like 1.11.2", p.Version))
+	}
+	if p.VersionSHA256 != "" && !sha256HexRE.MatchString(p.VersionSHA256) {
+		errs = append(errs, fmt.Errorf("packer.version_sha256 must be 64 hex characters"))
+	}
+	if u, err := url.Parse(p.ReleasesURL); err != nil || u.Scheme != "https" || u.Host == "" {
+		errs = append(errs, fmt.Errorf("packer.releases_url %q must be an https URL", p.ReleasesURL))
+	}
+	if p.BuildTimeout < 0 || p.InterruptGrace < 0 {
+		errs = append(errs, fmt.Errorf("packer.build_timeout and packer.interrupt_grace must be positive"))
+	}
+	return errors.Join(errs...)
+}
+
+var (
+	packerVersionRE = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
+	sha256HexRE     = regexp.MustCompile(`^[0-9a-fA-F]{64}$`)
+)
 
 // SIEMConfig is owned by the ops agent (internal/siem). Each output becomes a
 // logging.Sink and/or audit.Recorder.

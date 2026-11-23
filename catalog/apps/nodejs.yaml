@@ -1,0 +1,20 @@
+id: nodejs
+name: Node.js LTS
+category: dev
+description: JavaScript runtime with the npm package manager (LTS release).
+homepage: https://nodejs.org
+install:
+  windows:
+    - winget:
+        id: OpenJS.NodeJS.LTS
+      verify: 'if (Test-Path "$env:ProgramFiles\nodejs\node.exe") { exit 0 } else { exit 1 }'
+    - choco:
+        package: nodejs-lts
+      verify: 'if (Test-Path "$env:ProgramFiles\nodejs\node.exe") { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [nodejs, npm]
+      verify: command -v node && command -v npm
+    - dnf:
+        packages: [nodejs, npm]
+      verify: command -v node && command -v npm

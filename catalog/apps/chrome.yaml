@@ -1,0 +1,33 @@
+id: chrome
+name: Google Chrome
+category: browser
+description: Web browser from Google.
+homepage: https://www.google.com/chrome/
+install:
+  windows:
+    - winget:
+        id: Google.Chrome
+      verify: 'if ((Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") -or (Test-Path "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")) { exit 0 } else { exit 1 }'
+    - choco:
+        package: googlechrome
+      verify: 'if ((Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") -or (Test-Path "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe")) { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [google-chrome-stable]
+        repo:
+          name: google-chrome
+          url: https://dl.google.com/linux/chrome/deb/
+          key_url: https://dl.google.com/linux/linux_signing_key.pub
+          suite: stable
+          components: main
+      verify: command -v google-chrome-stable
+    - dnf:
+        packages: [google-chrome-stable]
+        repo:
+          name: google-chrome
+          url: https://dl.google.com/linux/chrome/rpm/stable/x86_64
+          key_url: https://dl.google.com/linux/linux_signing_key.pub
+      verify: command -v google-chrome-stable
+    - flatpak:
+        id: com.google.Chrome
+      verify: flatpak info com.google.Chrome >/dev/null 2>&1

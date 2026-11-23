@@ -56,28 +56,35 @@ func templateLabel(r Request) string {
 	return itoa(r.TemplateVMID)
 }
 
-func (h *HistoryStore) upsert(ctx context.Context, jobID string, req Request, actor, node string, vmid int, status string) error {
+// insertSQL inserts a history row; callers append an ON CONFLICT clause.
+const insertSQL = `INSERT INTO deploy_deployments
+		(job_id, cluster, node, vmid, name, template, os, apps, status, requested_by, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+func (h *HistoryStore) insert(ctx context.Context, onConflict, jobID string, req Request, actor, node string, vmid int, status string) error {
 	apps, _ := json.Marshal(req.Apps)
 	if req.Apps == nil {
 		apps = []byte("[]")
 	}
-	_, err := h.db.ExecContext(ctx, `INSERT INTO deploy_deployments
-		(job_id, cluster, node, vmid, name, template, os, apps, status, requested_by, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(job_id) DO UPDATE SET node = excluded.node, vmid = excluded.vmid, status = excluded.status`,
+	_, err := h.db.ExecContext(ctx, insertSQL+"\n\t\t"+onConflict,
 		jobID, req.Cluster, node, vmid, req.Name, templateLabel(req), req.OS, string(apps), status, actor,
 		time.Now().UTC().UnixMilli())
 	return err
 }
 
-// Queued implements History.
+// Queued implements History. It only creates the row: the web handler calls
+// it after Enqueue, so the job may already be running or finished, and a
+// late Queued must not move the status backwards.
 func (h *HistoryStore) Queued(ctx context.Context, jobID string, req Request, actor string) error {
-	return h.upsert(ctx, jobID, req, actor, req.Node, req.VMID, StatusQueued)
+	return h.insert(ctx, `ON CONFLICT(job_id) DO NOTHING`, jobID, req, actor, req.Node, req.VMID, StatusQueued)
 }
 
-// Running implements History.
+// Running implements History. It only advances a queued row (never a
+// finished one).
 func (h *HistoryStore) Running(ctx context.Context, jobID string, req Request, actor, node string, vmid int) error {
-	return h.upsert(ctx, jobID, req, actor, node, vmid, StatusRunning)
+	return h.insert(ctx, `ON CONFLICT(job_id) DO UPDATE SET node = excluded.node, vmid = excluded.vmid,
+		status = excluded.status WHERE deploy_deployments.status = 'queued'`,
+		jobID, req, actor, node, vmid, StatusRunning)
 }
 
 // Finished implements History.

@@ -92,20 +92,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: find templates
-        id: find
-        run: |
-          templates="$(find catalog -type f -name '*.pkr.hcl' -printf '%h\n' 2>/dev/null | sort -u | tr '\n' ' ')"
-          echo "dirs=${templates}" >> "$GITHUB_OUTPUT"
-          if [ -z "${templates}" ]; then echo "No Packer templates under catalog/; skipping."; fi
       - uses: hashicorp/setup-packer@v3
-        if: steps.find.outputs.dirs != ''
-      - name: packer init + validate
-        if: steps.find.outputs.dirs != ''
+      - uses: actions/setup-go@v6
+        with:
+          go-version: stable
+          check-latest: true
+      - name: packer init / validate -syntax-only / fmt -check
         run: |
-          for d in ${{ steps.find.outputs.dirs }}; do
-            echo "::group::$d"
-            packer init "$d"
-            packer validate -syntax-only "$d"
+          status=0
+          for d in catalog/images/*/; do
+            echo "::group::${d}"
+            # Run inside the image directory so ${path.root} resolves like a build workdir.
+            (cd "$d" && packer init . && packer validate -syntax-only . && packer fmt -check .) || status=1
             echo "::endgroup::"
           done
+          exit $status
+      - name: perfectimage catalog validate
+        run: go run ./cmd/perfectimage catalog validate --no-embedded --dir catalog
+      - name: packer validate rendered templates
+        # Renders every starter image with apps injected and runs a full
+        # `packer validate` (fake credentials, no Proxmox access needed).
+        env:
+          PERFECTIMAGE_PACKER_VALIDATE: "1"
+        run: go test -count=1 -run 'TestRenderedTemplatesValidate|TestRenderGolden' -v ./internal/packer

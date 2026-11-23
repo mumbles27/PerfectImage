@@ -1,0 +1,33 @@
+id: brave
+name: Brave
+category: browser
+description: Privacy-focused Chromium-based web browser.
+homepage: https://brave.com
+install:
+  windows:
+    - winget:
+        id: Brave.Brave
+      verify: 'if ((Test-Path "$env:ProgramFiles\BraveSoftware\Brave-Browser\Application\brave.exe") -or (Test-Path "${env:ProgramFiles(x86)}\BraveSoftware\Brave-Browser\Application\brave.exe")) { exit 0 } else { exit 1 }'
+    - choco:
+        package: brave
+      verify: 'if ((Test-Path "$env:ProgramFiles\BraveSoftware\Brave-Browser\Application\brave.exe") -or (Test-Path "${env:ProgramFiles(x86)}\BraveSoftware\Brave-Browser\Application\brave.exe")) { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [brave-browser]
+        repo:
+          name: brave-browser
+          url: https://brave-browser-apt-release.s3.brave.com/
+          key_url: https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
+          suite: stable
+          components: main
+      verify: command -v brave-browser
+    - dnf:
+        packages: [brave-browser]
+        repo:
+          name: brave-browser
+          url: https://brave-browser-rpm-release.s3.brave.com/x86_64/
+          key_url: https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
+      verify: command -v brave-browser
+    - flatpak:
+        id: com.brave.Browser
+      verify: flatpak info com.brave.Browser >/dev/null 2>&1

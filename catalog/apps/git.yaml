@@ -1,0 +1,20 @@
+id: git
+name: Git
+category: dev
+description: Distributed version control system.
+homepage: https://git-scm.com
+install:
+  windows:
+    - winget:
+        id: Git.Git
+      verify: 'if (Test-Path "$env:ProgramFiles\Git\cmd\git.exe") { exit 0 } else { exit 1 }'
+    - choco:
+        package: git
+      verify: 'if (Test-Path "$env:ProgramFiles\Git\cmd\git.exe") { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [git]
+      verify: command -v git
+    - dnf:
+        packages: [git]
+      verify: command -v git

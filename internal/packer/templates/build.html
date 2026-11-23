@@ -1,0 +1,115 @@
+{{define "head"}}<link rel="stylesheet" href="/catalog/static/catalog.css">{{end}}
+{{define "content"}}
+{{with .Data}}
+<h1>Build image</h1>
+{{if .CanBuild}}
+{{if not .HasCreds}}<div class="problems">No Proxmox credential provider is installed yet, so builds will fail until a cluster is configured.</div>{{end}}
+{{if .Errors}}<div class="problems" role="alert"><strong>Please fix the highlighted fields.</strong>{{with index .Errors "apps"}}<ul><li>{{.}}</li></ul>{{end}}</div>{{end}}
+<form id="wizard" class="wizard" method="post" action="/build">
+  {{with $.CSRFToken}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
+  <fieldset>
+    <legend>1. Image</legend>
+    <div class="row">
+      <label>Image
+        <select name="image" hx-get="/build" hx-target="#wizard" hx-select="#wizard" hx-swap="outerHTML" hx-include="[name=cluster],[name=node]">
+          {{range .Images}}<option value="{{.ID}}"{{if eq .ID $.Data.Req.ImageID}} selected{{end}}>{{.Name}}</option>{{end}}
+        </select>
+        {{with index .Errors "image_id"}}<span class="error-text">{{.}}</span>{{end}}
+      </label>
+    </div>
+    {{with .Image}}<p class="hint">{{.OSFamily}} · {{.OS}} {{.Version}} · {{.Firmware}}{{if .TPM}} + TPM{{end}} · <a href="/catalog/images/{{.ID}}">details</a></p>{{end}}
+  </fieldset>
+
+  <fieldset>
+    <legend>2. Target</legend>
+    <div class="row">
+      <label>Cluster
+        {{if .Clusters}}
+        <select name="cluster">{{range .Clusters}}<option value="{{.}}"{{if eq . $.Data.Req.Cluster}} selected{{end}}>{{.}}</option>{{end}}</select>
+        {{else}}<input name="cluster" value="{{.Req.Cluster}}" required placeholder="cluster name">{{end}}
+        {{with index .Errors "cluster"}}<span class="error-text">{{.}}</span>{{end}}
+      </label>
+      <label>Node
+        <input name="node" value="{{.Req.Node}}" required list="pi-nodes" placeholder="pve1" autocomplete="off">
+        <datalist id="pi-nodes">{{range .Nodes}}<option value="{{.}}">{{end}}</datalist>
+        {{with index .Errors "node"}}<span class="error-text">{{.}}</span>{{end}}
+      </label>
+      <label>Disk storage
+        <input name="storage" value="{{.Req.Storage}}" list="pi-storages" placeholder="{{with .Image}}{{.Resources.Storage}}{{end}}">
+        <datalist id="pi-storages">{{range .Storages}}<option value="{{.}}">{{end}}</datalist>
+        {{with index .Errors "storage"}}<span class="error-text">{{.}}</span>{{end}}
+      </label>
+      <label>ISO storage
+        <input name="iso_storage" value="{{.Req.ISOStorage}}" placeholder="local">
+        {{with index .Errors "iso_storage"}}<span class="error-text">{{.}}</span>{{end}}
+      </label>
+      <label>Bridge
+        <input name="bridge" value="{{.Req.Bridge}}" placeholder="{{with .Image}}{{.Resources.Bridge}}{{end}}">
+        {{with index .Errors "bridge"}}<span class="error-text">{{.}}</span>{{end}}
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>3. Resources and media</legend>
+    <div class="row">
+      <label>Cores <input name="cores" type="number" min="1" max="256" value="{{if .Req.Cores}}{{.Req.Cores}}{{end}}" placeholder="{{with .Image}}{{.Resources.Cores}}{{end}}">
+        {{with index .Errors "cores"}}<span class="error-text">{{.}}</span>{{end}}</label>
+      <label>Memory (MiB) <input name="memory" type="number" min="512" step="256" value="{{if .Req.Memory}}{{.Req.Memory}}{{end}}" placeholder="{{with .Image}}{{.Resources.Memory}}{{end}}">
+        {{with index .Errors "memory"}}<span class="error-text">{{.}}</span>{{end}}</label>
+      <label>Disk <input name="disk" value="{{.Req.Disk}}" placeholder="{{with .Image}}{{.Resources.Disk}}{{end}}">
+        {{with index .Errors "disk"}}<span class="error-text">{{.}}</span>{{end}}</label>
+      <label>Install ISO <input name="iso_file" value="{{.Req.ISOFile}}" placeholder="{{with .Image}}{{if .ISO.File}}{{.ISO.File}}{{else}}download from {{.OS}} mirror{{end}}{{end}}">
+        {{with index .Errors "iso_file"}}<span class="error-text">{{.}}</span>{{end}}</label>
+      {{with .Image}}{{if eq (print .OSFamily) "windows"}}
+      <label>virtio-win ISO <input name="virtio_iso_file" value="{{$.Data.Req.VirtioISOFile}}" placeholder="{{.ISO.VirtioFile}}">
+        {{with index $.Data.Errors "virtio_iso_file"}}<span class="error-text">{{.}}</span>{{end}}</label>
+      {{end}}{{end}}
+    </div>
+    <p class="hint">Leave fields empty to use the image defaults shown as placeholders.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>4. Apps</legend>
+    {{if .Bundles}}<p><strong>Bundles</strong></p>
+    <div class="checks">{{range .Bundles}}<label title="{{range $i, $a := .Apps}}{{if $i}}, {{end}}{{$a}}{{end}}"><input type="checkbox" name="bundles" value="{{.ID}}"{{if .Checked}} checked{{end}}> {{.Name}}</label>{{end}}</div>{{end}}
+    <p><strong>Apps</strong></p>
+    <div class="checks">{{range .Apps}}<label><input type="checkbox" name="apps" value="{{.ID}}"{{if .Checked}} checked{{end}}> {{.Name}}{{if .Default}} <span class="badge">default</span>{{end}}</label>{{else}}<span class="muted">No apps available for this image.</span>{{end}}</div>
+    <label class="checks"><span><input type="checkbox" name="skip_default_apps" value="1"{{if .Req.SkipDefaultApps}} checked{{end}}> Skip the image's default apps</span></label>
+  </fieldset>
+
+  <fieldset>
+    <legend>5. Template</legend>
+    <div class="row">
+      <label>Template name <input name="template_name" value="{{.Req.TemplateName}}" required>
+        {{with index .Errors "template_name"}}<span class="error-text">{{.}}</span>{{end}}</label>
+      <label>VMID <input name="vm_id" type="number" min="0" value="{{if .Req.VMID}}{{.Req.VMID}}{{end}}" placeholder="0 = next free">
+        {{with index .Errors "vm_id"}}<span class="error-text">{{.}}</span>{{end}}</label>
+    </div>
+  </fieldset>
+  <div class="actions"><button type="submit">Start build</button></div>
+</form>
+{{end}}
+
+<h2>Build history</h2>
+{{if .Builds}}
+<table class="table">
+  <thead><tr><th>Template</th><th>Image</th><th>Target</th><th>Status</th><th>VMID</th><th>Created</th><th>By</th><th>Job</th></tr></thead>
+  <tbody>
+  {{range .Builds}}
+  <tr>
+    <td><a href="/build/{{.ID}}">{{.TemplateName}}</a></td>
+    <td>{{.ImageName}}</td>
+    <td>{{.Cluster}} / {{.Node}}</td>
+    <td><span class="{{statusClass .Status}}">{{.Status}}</span></td>
+    <td>{{if .ArtifactID}}{{.ArtifactID}}{{else if .VMID}}{{.VMID}}{{else}}—{{end}}</td>
+    <td>{{fmtTime .CreatedAt}}</td>
+    <td>{{.CreatedBy}}</td>
+    <td>{{if .JobID}}<a href="/jobs/{{.JobID}}"><code>{{shortID .JobID}}</code></a>{{end}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<p class="muted">No builds yet.</p>{{end}}
+{{end}}
+{{end}}

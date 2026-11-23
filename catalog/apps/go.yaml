@@ -1,0 +1,31 @@
+id: go
+name: Go
+category: dev
+description: Go programming language toolchain.
+homepage: https://go.dev
+install:
+  windows:
+    - winget:
+        id: GoLang.Go
+      verify: 'if (Test-Path "$env:ProgramFiles\Go\bin\go.exe") { exit 0 } else { exit 1 }'
+    - choco:
+        package: golang
+      verify: 'if (Test-Path "$env:ProgramFiles\Go\bin\go.exe") { exit 0 } else { exit 1 }'
+    - msi:
+        url: https://go.dev/dl/go1.27.4.windows-amd64.msi
+        sha256: ae9e383a027ac83c227efd0be3173bf98bccfa5d966a206dff7998f4a3d8449c
+      verify: 'if (Test-Path "$env:ProgramFiles\Go\bin\go.exe") { exit 0 } else { exit 1 }'
+  linux:
+    - tarball:
+        url: https://go.dev/dl/go1.27.4.linux-amd64.tar.gz
+        sha256: 7226736c2339719cda28fbf3a54d71aa63bcefe376e98cef00034268dab24840
+        dest: /usr/local/go
+        strip_components: 1
+        bin: [bin/go, bin/gofmt]
+      verify: test -x /usr/local/go/bin/go
+    - apt:
+        packages: [golang-go]
+      verify: command -v go
+    - dnf:
+        packages: [golang]
+      verify: command -v go

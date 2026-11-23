@@ -1,0 +1,21 @@
+{{define "head"}}<link rel="stylesheet" href="/catalog/static/catalog.css">{{end}}
+{{define "content"}}
+{{with .Data}}
+<p><a href="/build">&larr; Builds</a></p>
+<h1>Build {{.TemplateName}}</h1>
+<dl class="meta">
+  <dt>Build ID</dt><dd><code>{{.ID}}</code></dd>
+  <dt>Status</dt><dd><span class="{{statusClass .Status}}">{{.Status}}</span></dd>
+  {{if .Error}}<dt>Error</dt><dd class="error-text">{{.Error}}</dd>{{end}}
+  <dt>Image</dt><dd><a href="/catalog/images/{{.ImageID}}">{{.ImageName}}</a> ({{.OSFamily}})</dd>
+  <dt>Target</dt><dd>cluster {{.Cluster}}, node {{.Node}}</dd>
+  <dt>Template VMID</dt><dd>{{if .ArtifactID}}{{.ArtifactID}}{{else if .VMID}}{{.VMID}} (requested){{else}}auto{{end}}</dd>
+  <dt>Apps</dt><dd>{{range $i, $a := .Apps}}{{if $i}}, {{end}}<a href="/catalog/apps/{{$a}}">{{$a}}</a>{{else}}none{{end}}</dd>
+  <dt>Created</dt><dd>{{fmtTime .CreatedAt}} by {{.CreatedBy}}</dd>
+  <dt>Started</dt><dd>{{fmtTime .StartedAt}}</dd>
+  <dt>Finished</dt><dd>{{fmtTime .FinishedAt}}</dd>
+  {{if .WorkDir}}<dt>Workdir</dt><dd><code>{{.WorkDir}}</code></dd>{{end}}
+  {{if .JobID}}<dt>Job</dt><dd><a href="/jobs/{{.JobID}}">live log &rarr;</a></dd>{{end}}
+</dl>
+{{end}}
+{{end}}

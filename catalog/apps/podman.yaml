@@ -1,0 +1,20 @@
+id: podman
+name: Podman
+category: container
+description: Daemonless OCI container engine.
+homepage: https://podman.io
+install:
+  windows:
+    - winget:
+        id: RedHat.Podman
+      verify: 'if (Test-Path "$env:ProgramFiles\RedHat\Podman\podman.exe") { exit 0 } else { exit 1 }'
+    - choco:
+        package: podman-cli
+      verify: 'if ((Test-Path "$env:ProgramFiles\RedHat\Podman\podman.exe") -or (Test-Path "$env:ProgramData\chocolatey\bin\podman.exe")) { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [podman]
+      verify: command -v podman
+    - dnf:
+        packages: [podman]
+      verify: command -v podman

@@ -1,0 +1,29 @@
+id: firefox
+name: Mozilla Firefox
+category: browser
+description: Open-source web browser from Mozilla.
+homepage: https://www.mozilla.org/firefox/
+install:
+  windows:
+    - winget:
+        id: Mozilla.Firefox
+      verify: 'if (Test-Path "$env:ProgramFiles\Mozilla Firefox\firefox.exe") { exit 0 } else { exit 1 }'
+    - choco:
+        package: firefox
+      verify: 'if (Test-Path "$env:ProgramFiles\Mozilla Firefox\firefox.exe") { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [firefox]
+      verify: command -v firefox
+    - apt:
+        packages: [firefox-esr]
+      verify: command -v firefox-esr
+    - dnf:
+        packages: [firefox]
+      verify: command -v firefox
+    - snap:
+        name: firefox
+      verify: snap list firefox >/dev/null 2>&1
+    - flatpak:
+        id: org.mozilla.firefox
+      verify: flatpak info org.mozilla.firefox >/dev/null 2>&1

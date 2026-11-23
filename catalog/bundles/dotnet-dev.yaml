@@ -1,0 +1,4 @@
+id: dotnet-dev
+name: .NET development
+description: .NET SDK with VS Code, Git and PowerShell 7.
+apps: [dotnet-sdk, vscode, git, powershell]

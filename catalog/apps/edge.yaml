@@ -1,0 +1,30 @@
+id: edge
+name: Microsoft Edge
+category: browser
+description: Chromium-based web browser from Microsoft.
+homepage: https://www.microsoft.com/edge
+install:
+  windows:
+    - winget:
+        id: Microsoft.Edge
+      verify: 'if ((Test-Path "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe") -or (Test-Path "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe")) { exit 0 } else { exit 1 }'
+    - choco:
+        package: microsoft-edge
+      verify: 'if ((Test-Path "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe") -or (Test-Path "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe")) { exit 0 } else { exit 1 }'
+  linux:
+    - apt:
+        packages: [microsoft-edge-stable]
+        repo:
+          name: microsoft-edge
+          url: https://packages.microsoft.com/repos/edge
+          key_url: https://packages.microsoft.com/keys/microsoft.asc
+          suite: stable
+          components: main
+      verify: command -v microsoft-edge-stable
+    - dnf:
+        packages: [microsoft-edge-stable]
+        repo:
+          name: microsoft-edge
+          url: https://packages.microsoft.com/yumrepos/edge
+          key_url: https://packages.microsoft.com/keys/microsoft.asc
+      verify: command -v microsoft-edge-stable

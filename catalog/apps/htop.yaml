@@ -1,0 +1,16 @@
+id: htop
+name: htop
+category: utility
+description: Interactive process viewer for Linux.
+homepage: https://htop.dev
+install:
+  linux:
+    - apt:
+        packages: [htop]
+      verify: command -v htop
+    - shell:
+        script: |
+          dnf -y install epel-release &&
+            dnf -y install htop
+      distros: [rhel]
+      verify: command -v htop

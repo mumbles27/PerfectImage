@@ -1,0 +1,4 @@
+id: browsers
+name: Browsers
+description: Common web browsers - Chrome, Firefox, Edge and Brave.
+apps: [chrome, firefox, edge, brave]
