@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CGO_ENABLED: "0"
+
+jobs:
+  lint-test:
+    name: fmt / vet / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          out="$(gofmt -l .)"
+          if [ -n "$out" ]; then echo "::error::gofmt needed:"; echo "$out"; exit 1; fi
+      - name: go vet (linux)
+        run: go vet ./...
+      - name: go vet (windows)
+        run: GOOS=windows GOARCH=amd64 go vet ./...
+      - name: go test -race
+        # -race requires cgo.
+        env:
+          CGO_ENABLED: "1"
+        run: (umask 077; go test -race -count=1 ./...)
+
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  build:
+    needs: lint-test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            ext: ""
+          - goos: windows
+            goarch: amd64
+            ext: ".exe"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          version="$(git describe --tags --always --dirty)"
+          go build -trimpath -ldflags "-s -w -X main.version=${version}" \
+            -o "dist/perfectimage-${GOOS}-${GOARCH}${{ matrix.ext }}" ./cmd/perfectimage
+      - uses: actions/upload-artifact@v4
+        with:
+          name: perfectimage-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/
+          if-no-files-found: error
+
+  packer-validate:
+    name: packer validate (catalog)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: find templates
+        id: find
+        run: |
+          templates="$(find catalog -type f -name '*.pkr.hcl' -printf '%h\n' 2>/dev/null | sort -u | tr '\n' ' ')"
+          echo "dirs=${templates}" >> "$GITHUB_OUTPUT"
+          if [ -z "${templates}" ]; then echo "No Packer templates under catalog/; skipping."; fi
+      - uses: hashicorp/setup-packer@v3
+        if: steps.find.outputs.dirs != ''
+      - name: packer init + validate
+        if: steps.find.outputs.dirs != ''
+        run: |
+          for d in ${{ steps.find.outputs.dirs }}; do
+            echo "::group::$d"
+            packer init "$d"
+            packer validate -syntax-only "$d"
+            echo "::endgroup::"
+          done

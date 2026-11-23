@@ -1,0 +1,36 @@
+{{define "content"}}
+<h1>Jobs</h1>
+<form class="filters" method="get" action="/jobs">
+  <label>Status
+    <select name="status">
+      <option value="">All</option>
+      {{range .Data.Statuses}}<option value="{{.}}"{{if eq (print .) $.Data.Status}} selected{{end}}>{{.}}</option>{{end}}
+    </select>
+  </label>
+  <button type="submit">Filter</button>
+</form>
+<div id="jobs-table" hx-get="/jobs{{with .Data.Status}}?status={{.}}{{end}}" hx-trigger="every 5s" hx-swap="innerHTML">
+{{template "jobs-table" .}}
+</div>
+{{end}}
+
+{{define "jobs-table"}}
+{{if .Data.Jobs}}
+<table class="table">
+  <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Created</th><th>Started</th><th>Finished</th><th>By</th></tr></thead>
+  <tbody>
+  {{range .Data.Jobs}}
+    <tr>
+      <td><a href="/jobs/{{.ID}}"><code>{{shortID .ID}}</code></a></td>
+      <td>{{.Type}}</td>
+      <td><span class="{{statusClass .Status}}">{{.Status}}</span></td>
+      <td>{{fmtTime .CreatedAt}}</td>
+      <td>{{fmtTime .StartedAt}}</td>
+      <td>{{fmtTime .FinishedAt}}</td>
+      <td>{{.CreatedBy}}</td>
+    </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<p class="muted">No jobs match.</p>{{end}}
+{{end}}

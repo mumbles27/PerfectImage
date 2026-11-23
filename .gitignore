@@ -1,0 +1,29 @@
+# Build output
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+coverage.*
+
+# Local runtime data (from config.example.yaml)
+/data/
+
+# Secrets and local config — never commit
+*.key
+*.pem
+*.crt
+*.dpapi
+/config.yaml
+*.local.yaml
+
+# Packer
+packer_cache/
+*.pkrvars.hcl
+!catalog/**/*.example.pkrvars.hcl
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store

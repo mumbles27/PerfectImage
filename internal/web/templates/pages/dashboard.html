@@ -1,0 +1,26 @@
+{{define "content"}}
+<h1>Dashboard</h1>
+{{if .Data.CanViewJob}}
+<section class="cards">
+  <a class="card" href="/jobs?status=queued"><span class="card-label">Queued</span><span class="card-value">{{index .Data.Counts "queued"}}</span></a>
+  <a class="card" href="/jobs?status=running"><span class="card-label">Running</span><span class="card-value">{{index .Data.Counts "running"}}</span></a>
+  <a class="card" href="/jobs?status=succeeded"><span class="card-label">Succeeded</span><span class="card-value">{{index .Data.Counts "succeeded"}}</span></a>
+  <a class="card" href="/jobs?status=failed"><span class="card-label">Failed</span><span class="card-value">{{index .Data.Counts "failed"}}</span></a>
+  <a class="card" href="/jobs?status=canceled"><span class="card-label">Canceled</span><span class="card-value">{{index .Data.Counts "canceled"}}</span></a>
+</section>
+<h2>Recent jobs</h2>
+{{if .Data.Recent}}
+<table class="table">
+  <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Created</th><th>By</th></tr></thead>
+  <tbody>
+  {{range .Data.Recent}}
+    <tr><td><a href="/jobs/{{.ID}}"><code>{{shortID .ID}}</code></a></td><td>{{.Type}}</td><td><span class="{{statusClass .Status}}">{{.Status}}</span></td><td>{{fmtTime .CreatedAt}}</td><td>{{.CreatedBy}}</td></tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<p class="muted">No jobs yet.</p>{{end}}
+<p class="muted">Registered job types: {{range $i, $t := .Data.Types}}{{if $i}}, {{end}}<code>{{$t}}</code>{{else}}none{{end}}</p>
+{{else}}
+<p>Welcome to PerfectImage.</p>
+{{end}}
+{{end}}

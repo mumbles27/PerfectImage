@@ -1,0 +1,61 @@
+# systemd unit for PerfectImage.
+#
+# Install:
+#   sudo useradd --system --home-dir /var/lib/perfectimage --shell /usr/sbin/nologin perfectimage
+#   sudo install -m 0755 perfectimage /usr/local/bin/perfectimage
+#   sudo install -d -m 0750 -o root -g perfectimage /etc/perfectimage
+#   sudo install -m 0640 -o root -g perfectimage config.example.yaml /etc/perfectimage/config.yaml
+#     (then edit: set data_dir to /var/lib/perfectimage and server.listen)
+#   sudo install -m 0644 packaging/perfectimage.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now perfectimage
+#
+# Alternatively `sudo perfectimage install --config /etc/perfectimage/config.yaml`
+# generates an equivalent (less hardened) unit running as root.
+
+[Unit]
+Description=PerfectImage - Proxmox template builder and VM deployer
+Documentation=https://github.com/mumbles27/PerfectImage
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=perfectimage
+Group=perfectimage
+ExecStart=/usr/local/bin/perfectimage serve --config /etc/perfectimage/config.yaml
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=60s
+UMask=0077
+
+StateDirectory=perfectimage
+StateDirectoryMode=0700
+LogsDirectory=perfectimage
+LimitNOFILE=65536
+
+# Allow binding to ports < 1024 without root.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+SystemCallArchitectures=native
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=/var/lib/perfectimage
+
+[Install]
+WantedBy=multi-user.target

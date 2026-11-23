@@ -1,0 +1,23 @@
+{{define "content"}}
+{{with .Data.Job}}
+<p><a href="/jobs">&larr; All jobs</a></p>
+<h1>Job <code>{{.ID}}</code></h1>
+<dl class="meta">
+  <dt>Type</dt><dd>{{.Type}}</dd>
+  <dt>Status</dt><dd><span id="job-status" data-initial="{{.Status}}" class="{{statusClass .Status}}">{{.Status}}</span></dd>
+  <dt>Created</dt><dd>{{fmtTime .CreatedAt}} by {{if .CreatedBy}}{{.CreatedBy}}{{else}}system{{end}}</dd>
+  <dt>Started</dt><dd>{{fmtTime .StartedAt}}</dd>
+  <dt>Finished</dt><dd>{{fmtTime .FinishedAt}}</dd>
+  {{if .Error}}<dt>Error</dt><dd class="error-text">{{.Error}}</dd>{{end}}
+</dl>
+{{if $.Data.CanCancel}}
+<form method="post" action="/jobs/{{.ID}}/cancel" class="inline">
+  {{with $.CSRFToken}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
+  <button type="submit" class="danger">Cancel job</button>
+</form>
+{{end}}
+<h2>Log</h2>
+<pre id="job-log" class="log" data-stream="/jobs/{{.ID}}/stream" aria-live="polite"></pre>
+{{if .Result}}<h2>Result</h2><pre class="log">{{printf "%s" .Result}}</pre>{{end}}
+{{end}}
+{{end}}

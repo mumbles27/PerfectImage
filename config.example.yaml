@@ -1,0 +1,78 @@
+# PerfectImage example configuration.
+#
+# Relative paths are resolved against the directory containing this file.
+# Production defaults (when a key is omitted):
+#   data_dir: /var/lib/perfectimage (Linux) or %ProgramData%\PerfectImage (Windows)
+#   config:   /etc/perfectimage/config.yaml or %ProgramData%\PerfectImage\config.yaml
+#
+# This example uses ./data so `go run ./cmd/perfectimage serve --config config.example.yaml`
+# works from a checkout without root. Never commit secrets to this file: credentials
+# (Proxmox tokens, SIEM keys) are entered in the UI and sealed in the database.
+
+data_dir: ./data
+
+server:
+  # HTTPS is on by default. With no cert_file/key_file a self-signed
+  # certificate is generated in <data_dir>/tls on first run.
+  listen: "127.0.0.1:8443"
+  shutdown_timeout: 30s
+  # public_url: https://perfectimage.example.com
+  tls:
+    cert_file: ""
+    key_file: ""
+    # Extra SANs for the generated certificate.
+    self_signed_hosts: []
+    # disable: true   # plain HTTP, only allowed on loopback listeners
+
+database:
+  # Defaults to <data_dir>/perfectimage.db
+  path: ""
+  busy_timeout: 5s
+
+log:
+  level: info            # debug | info | warn | error
+  file: ""               # default <data_dir>/logs/perfectimage.log; "-" disables
+  max_size_mb: 50
+  max_backups: 5
+  stdout: true
+
+jobs:
+  workers: 2
+  poll_interval: 2s
+
+catalog:
+  dirs:
+    - ./catalog
+
+secrets:
+  # Default <data_dir>/secrets/master.key (0600) on Linux,
+  # <data_dir>\secrets\master.key.dpapi (DPAPI, machine scope) on Windows.
+  key_file: ""
+
+auth:
+  # DEVELOPMENT ONLY: treat every request as an administrator. Only accepted
+  # when server.listen is a loopback address. Until the auth module lands,
+  # set this to true locally to browse the UI.
+  dev_allow_all: false
+  session_ttl: 8h
+
+proxmox:
+  clusters: []
+  # - name: lab
+  #   endpoint: https://pve.example.com:8006/api2/json
+  #   ca_file: /etc/perfectimage/pve-ca.pem
+
+packer:
+  binary: ""      # default: "packer" from PATH
+  work_dir: ""    # default <data_dir>/packer
+
+siem:
+  outputs: []
+  # - name: central-syslog
+  #   type: syslog
+  #   options: {address: "tcp://siem.example.com:6514"}
+
+backup:
+  dir: ""         # default <data_dir>/backups
+  retention: 7
+  schedule: ""
