@@ -67,10 +67,24 @@ auth:
   # secrets are sealed in the database.
 
 proxmox:
+  request_timeout: 30s   # one API call
+  task_timeout: 30m      # one Proxmox task (clone, start, ...)
+  agent_timeout: 15m     # wait for the QEMU guest agent after boot
+  # Seeded into the database the first time each name is seen; afterwards edit
+  # the cluster in Settings > Proxmox. The token secret is entered in the UI
+  # (or read once from token_secret_file) and sealed in the database.
   clusters: []
   # - name: lab
   #   endpoint: https://pve.example.com:8006/api2/json
-  #   ca_file: /etc/perfectimage/pve-ca.pem
+  #   token_id: perfectimage@pve!deploy
+  #   token_secret_file: /etc/perfectimage/pve-lab.token   # 0600, optional
+  #   ca_file: /etc/perfectimage/pve-ca.pem                # or:
+  #   fingerprint: ""     # SHA-256 of the server cert, AA:BB:...
+  #   insecure_skip_verify: false
+  #   default_node: pve1
+  #   default_storage: local-lvm
+  #   default_bridge: vmbr0
+  #   default_pool: perfectimage
 
 packer:
   binary: ""      # default: "packer" from PATH

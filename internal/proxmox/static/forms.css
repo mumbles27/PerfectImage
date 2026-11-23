@@ -1,0 +1,25 @@
+/* Shared form/layout styles for the Proxmox settings and Deploy pages. */
+.tabs { display: flex; gap: .5rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.tabs a { padding: .4rem .8rem; border-radius: 6px 6px 0 0; color: var(--muted); }
+.tabs a.active { color: var(--fg); border: 1px solid var(--border); border-bottom-color: var(--bg); background: var(--bg); margin-bottom: -1px; }
+.form { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; margin-bottom: 1rem; }
+.form fieldset { border: 1px solid var(--border); border-radius: 8px; margin: 0 0 1rem; padding: .75rem 1rem 1rem; }
+.form legend { font-weight: 600; padding: 0 .35rem; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem 1rem; }
+.grid .wide { grid-column: 1 / -1; }
+textarea { padding: .4rem .5rem; border: 1px solid var(--border); border-radius: 6px; font: 13px ui-monospace, Menlo, monospace; min-height: 5rem; width: 100%; }
+label.check { flex-direction: row; align-items: center; gap: .4rem; }
+.hint { color: var(--muted); font-size: 12px; }
+.actions { display: flex; gap: .5rem; align-items: center; margin-top: .5rem; flex-wrap: wrap; }
+button.secondary { background: #fff; color: var(--accent); }
+.alert { border-radius: 8px; padding: .75rem 1rem; margin-bottom: 1rem; border: 1px solid var(--border); background: var(--panel); }
+.alert-ok { border-color: #86efac; background: #f0fdf4; }
+.alert-error { border-color: #fca5a5; background: #fef2f2; color: var(--bad); }
+.alert-warn { border-color: #fcd34d; background: #fffbeb; color: var(--warn); }
+.badge { display: inline-block; padding: .05rem .45rem; border-radius: 999px; font-size: 11px; font-weight: 600; background: #e5e7eb; }
+.badge-pi { background: #dbeafe; color: var(--info); }
+.badge-warn { background: #fef3c7; color: var(--warn); }
+.tag { display: inline-block; padding: 0 .35rem; margin-right: .2rem; border-radius: 4px; background: #f1f5f9; font-size: 12px; }
+.small { font-size: 12px; }
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline; }

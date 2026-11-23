@@ -1,0 +1,28 @@
+{{define "head"}}<link rel="stylesheet" href="/proxmox/static/forms.css">{{end}}
+{{define "content"}}
+<h1>Deployment history</h1>
+<nav class="tabs" aria-label="Deploy"><a href="/deploy">Deploy VM</a><a href="/deploy/templates">Templates</a><a href="/deploy/history" class="active" aria-current="page">History</a></nav>
+
+{{if .Data.Deployments}}
+<table class="table">
+  <thead><tr><th>Created</th><th>Name</th><th>Cluster / node</th><th>VMID</th><th>Template</th><th>OS</th><th>Status</th><th>IPs</th><th>By</th></tr></thead>
+  <tbody>
+  {{range .Data.Deployments}}
+  <tr>
+    <td>{{fmtTime .CreatedAt}}</td>
+    <td>{{.Name}}</td>
+    <td>{{.Cluster}}{{with .Node}} / {{.}}{{end}}</td>
+    <td>{{if .VMID}}{{.VMID}}{{else}}—{{end}}</td>
+    <td>{{.Template}}</td>
+    <td>{{.OS}}</td>
+    <td>{{if $.Data.CanViewJobs}}<a href="/jobs/{{.JobID}}">{{end}}<span class="status status-{{.Status}}">{{.Status}}</span>{{if $.Data.CanViewJobs}}</a>{{end}}
+      {{if .CleanedUp}}<span class="badge">cleaned up</span>{{end}}
+      {{with .Error}}<div class="small error-text">{{.}}</div>{{end}}</td>
+    <td class="small">{{.IPAddresses}}</td>
+    <td>{{.RequestedBy}}</td>
+  </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}<p class="muted">No deployments yet.</p>{{end}}
+{{end}}

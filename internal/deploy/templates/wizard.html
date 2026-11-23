@@ -1,0 +1,138 @@
+{{define "head"}}<link rel="stylesheet" href="/proxmox/static/forms.css">{{end}}
+{{define "content"}}
+<h1>Deploy a VM</h1>
+<nav class="tabs" aria-label="Deploy"><a href="/deploy" class="active" aria-current="page">Deploy VM</a><a href="/deploy/templates">Templates</a><a href="/deploy/history">History</a></nav>
+
+{{with .Data.Errors}}<div class="alert alert-error" role="alert"><strong>Please fix the following:</strong><ul>{{range .}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+{{if not .Data.Clusters}}
+<div class="notice">No Proxmox clusters are configured. {{if hasPerm .Principal "proxmox.manage"}}<a href="/settings/proxmox">Add one</a>.{{else}}Ask an administrator to add one.{{end}}</div>
+{{else}}
+{{$f := .Data.Form}}
+<form class="form" method="post" action="/deploy" autocomplete="off">
+  {{with $.CSRFToken}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
+  <fieldset>
+    <legend>Source</legend>
+    <div class="grid">
+      <label>Cluster
+        <select name="cluster" required hx-get="/deploy/options" hx-trigger="change" hx-target="#options" hx-swap="innerHTML">
+          <option value="">Choose…</option>
+          {{range .Data.Clusters}}<option value="{{.}}"{{if eq . $f.Cluster}} selected{{end}}>{{.}}</option>{{end}}
+        </select>
+      </label>
+    </div>
+    <div id="options">{{with .Data.Options}}{{template "options-body" .}}{{end}}</div>
+  </fieldset>
+  <fieldset>
+    <legend>VM</legend>
+    <div class="grid">
+      <label>Name<input name="name" value="{{$f.Name}}" required maxlength="63" placeholder="web01"></label>
+      <label>VMID<input name="vmid" value="{{$f.VMID}}" inputmode="numeric" placeholder="next free"></label>
+      <label>CPU cores<input name="cores" type="number" min="1" max="512" value="{{$f.Cores}}"></label>
+      <label>Memory (MiB)<input name="memory_mb" type="number" min="16" step="256" value="{{$f.MemoryMB}}"></label>
+      <label>Disk size (GiB)<input name="disk_gb" type="number" min="1" value="{{$f.DiskGB}}" placeholder="template size">
+        <span class="hint">Grows the boot disk; never shrinks.</span></label>
+      <label class="check"><input type="checkbox" name="linked_clone" value="1"{{if $f.LinkedClone}} checked{{end}}> Linked clone (fast, depends on the template)</label>
+    </div>
+  </fieldset>
+  <fieldset>
+    <legend>Network</legend>
+    <div class="grid">
+      <label>IP configuration
+        <select name="ip_mode">
+          <option value="dhcp"{{if ne $f.IPMode "static"}} selected{{end}}>DHCP</option>
+          <option value="static"{{if eq $f.IPMode "static"}} selected{{end}}>Static</option>
+        </select>
+      </label>
+      <label>Static IP (CIDR)<input name="ip_cidr" value="{{$f.IPCIDR}}" placeholder="10.0.10.25/24"></label>
+      <label>Gateway<input name="gateway" value="{{$f.Gateway}}" placeholder="10.0.10.1"></label>
+      <label>DNS servers<input name="dns" value="{{$f.DNS}}" placeholder="10.0.0.53, 10.0.0.54"></label>
+      <label>Search domain<input name="search_domain" value="{{$f.SearchDomain}}" placeholder="corp.example.com"></label>
+    </div>
+  </fieldset>
+  <div id="osfields">{{with .Data.OSFields}}{{template "osfields-body" .}}{{end}}</div>
+  <div class="actions">
+    <label class="check"><input type="checkbox" name="cleanup" value="1"{{if $f.Cleanup}} checked{{end}}> Delete the VM if any step fails</label>
+  </div>
+  <div class="actions"><button type="submit">Deploy</button></div>
+</form>
+{{end}}
+{{end}}
+
+{{define "options"}}{{template "options-body" .Data}}{{if .Data.ClearOS}}<div id="osfields" hx-swap-oob="true"></div>{{end}}{{end}}
+
+{{define "options-body"}}
+{{with .Error}}<div class="alert alert-error" role="alert">{{.}}</div>{{end}}
+{{if .Cluster}}
+{{$f := .Form}}
+<div class="grid">
+  <label class="wide">Template
+    <select name="template" required hx-get="/deploy/osfields" hx-trigger="change" hx-target="#osfields" hx-include="[name='cluster']">
+      <option value="">Choose…</option>
+      {{range .Templates}}<option value="{{.Value}}"{{if eq .Value $f.Template}} selected{{end}}>{{if .PI}}★ {{end}}{{.Label}}</option>{{end}}
+    </select>
+    <span class="hint">★ built by PerfectImage</span>
+  </label>
+  <label>Target node
+    {{if .Nodes}}<select name="node" hx-get="/deploy/options" hx-trigger="change" hx-target="#options" hx-include="[name='cluster'],[name='template']">
+      {{range .Nodes}}<option value="{{.}}"{{if eq . $f.Node}} selected{{end}}>{{.}}</option>{{end}}
+    </select>{{else}}<input name="node" value="{{$f.Node}}">{{end}}
+  </label>
+  <label>Storage (full clone)
+    {{if .Storages}}<select name="storage"><option value="">Same as template</option>{{range .Storages}}<option value="{{.}}"{{if eq . $f.Storage}} selected{{end}}>{{.}}</option>{{end}}</select>{{else}}<input name="storage" value="{{$f.Storage}}">{{end}}
+  </label>
+  <label>Pool
+    {{if .Pools}}<select name="pool"><option value="">None</option>{{range .Pools}}<option value="{{.}}"{{if eq . $f.Pool}} selected{{end}}>{{.}}</option>{{end}}</select>{{else}}<input name="pool" value="{{$f.Pool}}">{{end}}
+  </label>
+  <label>Bridge
+    {{if .Bridges}}<select name="bridge"><option value="">Keep template NIC</option>{{range .Bridges}}<option value="{{.}}"{{if eq . $f.Bridge}} selected{{end}}>{{.}}</option>{{end}}</select>{{else}}<input name="bridge" value="{{$f.Bridge}}">{{end}}
+  </label>
+  <label>VLAN tag<input name="vlan" type="number" min="1" max="4094" value="{{$f.VLAN}}" placeholder="untagged"></label>
+</div>
+{{end}}
+{{end}}
+
+{{define "osfields"}}{{template "osfields-body" .Data}}{{end}}
+
+{{define "osfields-body"}}
+{{with .Error}}<div class="alert alert-error" role="alert">{{.}}</div>{{end}}
+{{$f := .Form}}
+{{if eq .OS "linux"}}
+<fieldset>
+  <legend>Linux (cloud-init)</legend>
+  <div class="grid">
+    <label>User<input name="ci_user" value="{{$f.CIUser}}" placeholder="ops" pattern="[a-z_][a-z0-9_\-]*"></label>
+    <label class="wide">SSH public keys (one per line)<textarea name="ssh_keys" rows="3" placeholder="ssh-ed25519 AAAA… you@example">{{$f.SSHKeys}}</textarea></label>
+  </div>
+  {{if not .HasCloudInit}}<p class="hint">The template has no cloud-init drive; one will be added.</p>{{end}}
+</fieldset>
+{{else if eq .OS "windows"}}
+<fieldset>
+  <legend>Windows</legend>
+  <div class="grid">
+    <label>Hostname<input name="hostname" value="{{$f.Hostname}}" maxlength="15" placeholder="WEB01"></label>
+    <label>Administrator password<input name="admin_password" type="password" autocomplete="new-password"></label>
+    <label>Confirm password<input name="admin_password_confirm" type="password" autocomplete="new-password"></label>
+  </div>
+  <p class="hint">Applied through the QEMU guest agent after first boot. Passwords are sealed and never logged.
+  {{if not .HasCloudInit}}Static IPs are configured with PowerShell (no cloud-init drive).{{end}}</p>
+  <fieldset>
+    <legend>Domain join (optional)</legend>
+    <div class="grid">
+      <label>Domain<input name="domain" value="{{$f.Domain}}" placeholder="corp.example.com"></label>
+      <label>Join user<input name="domain_user" value="{{$f.DomainUser}}" placeholder="CORP\svc-join"></label>
+      <label>Join password<input name="domain_password" type="password" autocomplete="new-password"></label>
+      <label class="wide">OU path<input name="domain_ou" value="{{$f.DomainOU}}" placeholder="OU=Servers,DC=corp,DC=example,DC=com"></label>
+    </div>
+  </fieldset>
+</fieldset>
+{{end}}
+{{if .OS}}
+<fieldset>
+  <legend>Post-deploy apps</legend>
+  {{with .AppsError}}<div class="alert alert-error">{{.}}</div>{{end}}
+  {{if .Apps}}<div class="grid">{{range .Apps}}
+    <label class="check"><input type="checkbox" name="apps" value="{{.ID}}"{{if $f.HasApp .ID}} checked{{end}}> {{.Name}}{{with .Description}} <span class="hint">{{.}}</span>{{end}}</label>
+  {{end}}</div>{{else}}<p class="muted">No apps are available for {{.OS}} yet.</p>{{end}}
+</fieldset>
+{{end}}
+{{end}}
