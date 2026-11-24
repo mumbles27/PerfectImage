@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -95,6 +96,42 @@ func (p *ProxmoxCreds) relay(c proxmox.Credentials) (*proxmox.Relay, error) {
 	}
 	p.relays[c.Cluster] = relayEntry{key: key, relay: r}
 	return r, nil
+}
+
+var _ packer.SeedStore = (*ProxmoxCreds)(nil)
+
+// PutSeed implements packer.SeedStore: it uploads iso (verified by PVE
+// against its SHA-256) and waits for the upload task.
+func (p *ProxmoxCreds) PutSeed(ctx context.Context, cluster, node, storage, name string, iso []byte) (string, error) {
+	cl, err := p.Registry.Client(ctx, cluster)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(iso)
+	upid, err := cl.UploadISO(ctx, node, storage, name, bytes.NewReader(iso), proxmox.UploadOptions{
+		Content: "iso", Checksum: hex.EncodeToString(sum[:]), ChecksumAlgorithm: "sha256",
+	})
+	if err != nil {
+		return "", err
+	}
+	if _, err := cl.WaitTask(ctx, upid); err != nil {
+		return "", err
+	}
+	return storage + ":iso/" + name, nil
+}
+
+// DeleteSeed implements packer.SeedStore.
+func (p *ProxmoxCreds) DeleteSeed(ctx context.Context, cluster, node, volid string) error {
+	cl, err := p.Registry.Client(ctx, cluster)
+	if err != nil {
+		return err
+	}
+	upid, err := cl.DeleteVolume(ctx, node, volid)
+	if err != nil {
+		return err
+	}
+	_, err = cl.WaitTask(ctx, upid)
+	return err
 }
 
 // Close stops all relays.

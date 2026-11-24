@@ -206,6 +206,7 @@ func (l *loader) loadLayer(layer Layer) error {
 		img.Files = sub
 		img.Source = Source{Origin: layer.Origin, File: rel}
 		l.probs = append(l.probs, validateImageFiles(sub, problemFile(layer.Origin, path.Join("images", e.Name())))...)
+		l.probs = append(l.probs, validateSeedFiles(img, sub, problemFile(layer.Origin, path.Join("images", e.Name())))...)
 		l.cat.Images[img.ID] = img
 		l.nodes["image:"+img.ID] = parsed{file: pf, root: node}
 	}

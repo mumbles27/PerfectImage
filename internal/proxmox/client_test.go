@@ -11,6 +11,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -526,20 +528,37 @@ func TestWaitTaskContext(t *testing.T) {
 func TestUploadISO(t *testing.T) {
 	var got struct {
 		content, filename, body string
+		fieldOrder              []string
 	}
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := r.ParseMultipartForm(1 << 20); err != nil {
-			t.Error(err)
-		}
-		got.content = r.FormValue("content")
-		file, hdr, err := r.FormFile("filename")
-		if err != nil {
-			t.Error(err)
+		if mr, err := r.MultipartReader(); err == nil {
+			// Record the part order (PVE parses the stream in order).
+			got.fieldOrder = nil
+			for {
+				p, err := mr.NextPart()
+				if err != nil {
+					break
+				}
+				got.fieldOrder = append(got.fieldOrder, p.FormName())
+				b, _ := io.ReadAll(p)
+				switch p.FormName() {
+				case "content":
+					got.content = string(b)
+				case "filename":
+					got.filename, got.body = p.FileName(), string(b)
+				}
+			}
+			if r.ContentLength <= 0 || len(r.TransferEncoding) > 0 {
+				t.Errorf("upload must have a Content-Length (te=%v len=%d)", r.TransferEncoding, r.ContentLength)
+			}
+			if got.filename == "" {
+				http.Error(w, "incomplete body", http.StatusBadRequest)
+				return
+			}
+			writeData(w, "UPID:pve1:00000001:00000001:00000001:imgcopy::root@pam:")
 			return
 		}
-		b, _ := io.ReadAll(file)
-		got.filename, got.body = hdr.Filename, string(b)
-		writeData(w, "UPID:pve1:00000001:00000001:00000001:imgcopy::root@pam:")
+		http.Error(w, "not multipart", http.StatusBadRequest)
 	}))
 	defer srv.Close()
 	c, _ := New(Options{Endpoint: srv.URL, TokenID: testTokenID, Secret: testSecret, Transport: srv.Client().Transport})
@@ -550,8 +569,37 @@ func TestUploadISO(t *testing.T) {
 	if got.content != "iso" || got.filename != "test.iso" || got.body != "ISO DATA" {
 		t.Errorf("upload = %+v", got)
 	}
+	// PVE requires checksum-algorithm before checksum, all before the file.
+	if _, err := c.UploadISO(context.Background(), "pve1", "local", "c.iso", strings.NewReader("X"),
+		UploadOptions{Checksum: "ab", ChecksumAlgorithm: "sha256"}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(got.fieldOrder, ",") != "content,checksum-algorithm,checksum,filename" {
+		t.Errorf("multipart field order = %v", got.fieldOrder)
+	}
 	if _, err := c.UploadISO(context.Background(), "pve1", "local", "../x.iso", strings.NewReader(""), UploadOptions{}); err == nil {
 		t.Error("expected filename validation error")
+	}
+	// Unknown size is rejected up front; an explicit Size streams any reader.
+	if _, err := c.UploadISO(context.Background(), "pve1", "local", "p.iso", io.MultiReader(strings.NewReader("x")), UploadOptions{}); err == nil {
+		t.Error("expected unknown-size error")
+	}
+	if _, err := c.UploadISO(context.Background(), "pve1", "local", "p.iso", io.MultiReader(strings.NewReader("PIPED")), UploadOptions{Size: 5}); err != nil || got.body != "PIPED" {
+		t.Errorf("sized upload = %q, %v", got.body, err)
+	}
+	// A source shorter than the declared size fails instead of hanging.
+	if _, err := c.UploadISO(context.Background(), "pve1", "local", "p.iso", io.MultiReader(strings.NewReader("AB")), UploadOptions{Size: 5}); err == nil {
+		t.Error("expected short-read error")
+	}
+	// Files: size from Stat.
+	fp := filepath.Join(t.TempDir(), "f.iso")
+	if err := os.WriteFile(fp, []byte("FROM FILE"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fh, _ := os.Open(fp)
+	defer fh.Close()
+	if _, err := c.UploadISO(context.Background(), "pve1", "local", "f.iso", fh, UploadOptions{}); err != nil || got.body != "FROM FILE" {
+		t.Errorf("file upload = %q, %v", got.body, err)
 	}
 }
 

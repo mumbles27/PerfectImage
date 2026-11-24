@@ -13,7 +13,9 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -75,11 +77,58 @@ func (fakeCreds) Creds(_ context.Context, cluster string) (string, string, strin
 	return "https://pve.example.invalid:8006", fakeUser, fakeToken, true, nil
 }
 
+// fakeSeeds records seed uploads and deletions.
+type fakeSeeds struct {
+	mu      sync.Mutex
+	put     []string
+	deleted []string
+	isoSize int
+}
+
+func (f *fakeSeeds) PutSeed(_ context.Context, cluster, node, storage, name string, iso []byte) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	volid := storage + ":iso/" + name
+	f.put = append(f.put, volid)
+	f.isoSize = len(iso)
+	return volid, nil
+}
+
+func (f *fakeSeeds) DeleteSeed(_ context.Context, cluster, node, volid string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deleted = append(f.deleted, volid)
+	return nil
+}
+
+// check asserts exactly one seed was uploaded and then deleted.
+func (f *fakeSeeds) check(t *testing.T) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		f.mu.Lock()
+		put, del := slices.Clone(f.put), slices.Clone(f.deleted)
+		size := f.isoSize
+		f.mu.Unlock()
+		if len(put) == 1 && len(del) == 1 {
+			if put[0] != del[0] || !strings.HasPrefix(put[0], "local:iso/pi-seed-") || size < 32768 {
+				t.Fatalf("seed put=%v deleted=%v size=%d", put, del, size)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("seed put=%v deleted=%v, want one upload and its deletion", put, del)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}
+
 type jobEnv struct {
-	svc  *Service
-	mgr  *jobs.Manager
-	bin  string
-	work string
+	svc   *Service
+	mgr   *jobs.Manager
+	bin   string
+	work  string
+	seeds *fakeSeeds
 }
 
 func newJobEnv(t *testing.T, mode string, keep string) *jobEnv {
@@ -120,7 +169,8 @@ func newJobEnv(t *testing.T, mode string, keep string) *jobEnv {
 	mgr := jobs.New(db, jobs.Options{Workers: 1, PollInterval: 10 * time.Millisecond})
 	cfg := config.PackerConfig{Binary: bin, WorkDir: filepath.Join(tmp, "work"), KeepWorkDir: keep,
 		InterruptGrace: 3 * time.Second, BuildTimeout: time.Minute}
-	svc := NewService(Options{Config: cfg, Catalog: cat, DB: db, Sealer: sealer, Jobs: mgr, Creds: fakeCreds{}})
+	seeds := &fakeSeeds{}
+	svc := NewService(Options{Config: cfg, Catalog: cat, DB: db, Sealer: sealer, Jobs: mgr, Creds: fakeCreds{}, Seeds: seeds})
 	if err := mgr.Register(JobType, svc); err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +182,7 @@ func newJobEnv(t *testing.T, mode string, keep string) *jobEnv {
 		defer cancel()
 		_ = mgr.Stop(c)
 	})
-	return &jobEnv{svc: svc, mgr: mgr, bin: binDir, work: cfg.WorkDir}
+	return &jobEnv{svc: svc, mgr: mgr, bin: binDir, work: cfg.WorkDir, seeds: seeds}
 }
 
 func (e *jobEnv) wait(t *testing.T, id string) *jobs.Job {
@@ -217,6 +267,12 @@ func TestBuildJob(t *testing.T) {
 			if strings.Contains(logs, fakeToken) {
 				t.Fatal("token leaked into job log")
 			}
+			if tt.req == nil { // the ubuntu image uses a cidata seed ISO
+				e.seeds.check(t)
+				if !strings.Contains(logs, "uploading seed ISO") || !strings.Contains(logs, "deleted seed ISO") {
+					t.Errorf("seed lifecycle not logged:\n%s", logs)
+				}
+			}
 			build, err := e.svc.Build(context.Background(), b.ID)
 			if err != nil {
 				t.Fatal(err)
@@ -297,6 +353,7 @@ func TestBuildJobCancel(t *testing.T) {
 			if logs := e.logs(t, j.ID); !strings.Contains(logs, "interrupted, deleting VM") {
 				t.Fatalf("packer did not get an interrupt (it was killed without cleanup):\n%s", logs)
 			}
+			e.seeds.check(t) // seed ISO removed even when canceled
 		})
 	}
 }

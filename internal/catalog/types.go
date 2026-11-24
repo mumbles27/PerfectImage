@@ -64,10 +64,33 @@ type Image struct {
 	Communicator string    `yaml:"communicator" json:"communicator"`
 	DefaultApps  []string  `yaml:"default_apps" json:"default_apps,omitempty"`
 	Tags         []string  `yaml:"tags" json:"tags,omitempty"`
+	// Seed, when set, makes PerfectImage generate a small ISO per build and
+	// attach it to the build VM (variable seed_iso_file), so the installer
+	// reads its answers from a CD instead of Packer's HTTP server.
+	Seed *Seed `yaml:"seed,omitempty" json:"seed,omitempty"`
 
 	Source Source `yaml:"-" json:"source"`
 	// Files holds the image directory (image.yaml, *.pkr.hcl, http/, scripts/).
 	Files fs.FS `yaml:"-" json:"-"`
+}
+
+// Seed describes a generated seed ISO, e.g. a cloud-init NoCloud volume
+// (label "cidata" with user-data and meta-data) or an Anaconda kickstart
+// volume (label "OEMDRV" with ks.cfg).
+type Seed struct {
+	// Label is the ISO volume label installers look for.
+	Label string     `yaml:"label" json:"label"`
+	Files []SeedFile `yaml:"files" json:"files"`
+}
+
+// SeedFile is one file on the seed ISO.
+type SeedFile struct {
+	// Name is the file name on the ISO.
+	Name string `yaml:"name" json:"name"`
+	// Template is a Go text/template in the image directory rendered with
+	// .Username and .Password (the temporary build credentials) and the
+	// "json" function. Empty means an empty file.
+	Template string `yaml:"template,omitempty" json:"template,omitempty"`
 }
 
 // ISO describes the install media. Either URL+Checksum (downloaded by

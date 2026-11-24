@@ -35,6 +35,7 @@ type Service struct {
 	jobs    *jobs.Manager
 	http    *http.Client
 	creds   func() ClusterCreds
+	seeds   func() SeedStore
 	binary  func(ctx context.Context) (string, error)
 	cleanup func(string) error
 }
@@ -50,6 +51,8 @@ type Options struct {
 	Jobs    *jobs.Manager
 	// Creds overrides the process-wide SetClusterCreds provider (tests).
 	Creds ClusterCreds
+	// Seeds overrides the process-wide SetSeedStore store (tests).
+	Seeds SeedStore
 }
 
 // NewService returns a build service.
@@ -68,6 +71,10 @@ func NewService(o Options) *Service {
 	s.creds = currentCreds
 	if o.Creds != nil {
 		s.creds = func() ClusterCreds { return o.Creds }
+	}
+	s.seeds = currentSeedStore
+	if o.Seeds != nil {
+		s.seeds = func() SeedStore { return o.Seeds }
 	}
 	s.binary = func(ctx context.Context) (string, error) { return FindBinary(ctx, s.cfg, s.http) }
 	return s
@@ -260,7 +267,16 @@ func (s *Service) run(ctx context.Context, req BuildRequest, workdir string, log
 	if len(appIDs) > 0 {
 		desc += "; apps: " + strings.Join(appIDs, ", ")
 	}
-	if err := Render(workdir, img, steps, Vars(img, req, insecure, desc)); err != nil {
+	vars := Vars(img, req, insecure, desc)
+	if img.Seed != nil {
+		volid, cleanup, err := s.uploadSeed(ctx, img, req, password, log)
+		if err != nil {
+			return nil, "", err
+		}
+		defer cleanup()
+		vars = append(vars, Var{"seed_iso_file", volid})
+	}
+	if err := Render(workdir, img, steps, vars); err != nil {
 		return nil, "", fmt.Errorf("render workdir: %w", err)
 	}
 	log.Printf("==> rendered workdir %s", workdir)
@@ -321,6 +337,46 @@ func (s *Service) run(ctx context.Context, req BuildRequest, workdir string, log
 		BuildID: req.BuildID, ImageID: img.ID, TemplateName: req.TemplateName, TemplateID: artifact,
 		Cluster: req.Cluster, Node: req.Node, Apps: appIDs,
 	}, artifact, nil
+}
+
+// uploadSeed renders the image's seed files, packs them into an ISO and
+// uploads it to the build's ISO storage. The returned cleanup deletes the
+// ISO (it contains the temporary build password) whatever the outcome,
+// including cancellation.
+func (s *Service) uploadSeed(ctx context.Context, img *catalog.Image, req BuildRequest, password string, log *jobs.LogWriter) (string, func(), error) {
+	ss := s.seeds()
+	if ss == nil {
+		return "", nil, ErrNoSeedStore
+	}
+	files, err := RenderSeed(img, SeedData{Username: BuildUsername, Password: password})
+	if err != nil {
+		return "", nil, err
+	}
+	iso, err := SeedISO(img.Seed.Label, files)
+	if err != nil {
+		return "", nil, err
+	}
+	storage := req.ISOStorage
+	if storage == "" {
+		storage = "local"
+	}
+	name := "pi-seed-" + req.BuildID + ".iso"
+	log.Printf("==> uploading seed ISO %s (label %s, %d KiB) to %s", name, img.Seed.Label, (len(iso)+1023)/1024, storage)
+	volid, err := ss.PutSeed(ctx, req.Cluster, req.Node, storage, name, iso)
+	if err != nil {
+		return "", nil, fmt.Errorf("upload seed ISO: %w", err)
+	}
+	cleanup := func() {
+		dctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Minute)
+		defer cancel()
+		if err := ss.DeleteSeed(dctx, req.Cluster, req.Node, volid); err != nil {
+			log.Printf("WARNING: could not delete seed ISO %s: %v (delete it manually; it contains the temporary build password)", volid, err)
+			s.log.Warn("delete seed ISO", "volid", volid, "err", err)
+			return
+		}
+		log.Printf("==> deleted seed ISO %s", volid)
+	}
+	return volid, cleanup, nil
 }
 
 func vmidLabel(id int) string {

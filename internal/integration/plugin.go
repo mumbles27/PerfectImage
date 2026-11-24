@@ -34,6 +34,7 @@ func (plugin) Init(_ context.Context, d *app.Deps) error {
 	reg := proxmox.NewRegistry(d.DB, d.Sealer, d.Logger.With("component", "proxmox"), d.Config.Proxmox)
 	creds := &ProxmoxCreds{Registry: reg, Logger: d.Logger}
 	packer.SetClusterCreds(creds)
+	packer.SetSeedStore(creds)
 	d.OnShutdown(creds.Close)
 
 	cat := catalog.Shared(d.Config.Catalog.Dirs, d.Logger.With("component", "catalog"))

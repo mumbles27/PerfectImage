@@ -102,6 +102,11 @@ variable "build_password" {
   description = "Temporary password of the build user; random per build."
 }
 
+variable "seed_iso_file" {
+  type        = string
+  description = "Per-build seed ISO uploaded by PerfectImage (installer answers)."
+}
+
 source "proxmox-iso" "image" {
   node                     = var.proxmox_node
   insecure_skip_tls_verify = var.proxmox_insecure
@@ -154,17 +159,16 @@ source "proxmox-iso" "image" {
   cloud_init              = true
   cloud_init_storage_pool = var.storage_pool
 
-  http_content = {
-    "/ks.cfg" = templatefile("${path.root}/http/ks.pkrtpl", {
-      username = var.build_username
-      password = var.build_password
-    })
+  additional_iso_files {
+    type     = "sata"
+    iso_file = var.seed_iso_file
+    unmount  = true
   }
 
   boot_wait = "10s"
   boot_command = [
     "<wait5s><up><wait>e<wait><down><down><end><wait>",
-    " inst.text inst.ks=http://{{ .HTTPIP }}:{{ .HTTPPort }}/ks.cfg<wait>",
+    " inst.text inst.ks=hd:LABEL=OEMDRV:/ks.cfg<wait>",
     "<leftCtrlOn>x<leftCtrlOff>"
   ]
 

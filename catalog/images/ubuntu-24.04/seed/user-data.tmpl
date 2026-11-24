@@ -1,5 +1,6 @@
 #cloud-config
-# Ubuntu autoinstall answers, rendered by Packer's templatefile().
+# Ubuntu autoinstall answers. PerfectImage renders this Go template into the
+# "cidata" seed ISO attached to the build VM (cloud-init NoCloud datasource).
 autoinstall:
   version: 1
   locale: en_US.UTF-8
@@ -23,9 +24,9 @@ autoinstall:
   user-data:
     disable_root: true
     users:
-      - name: ${username}
+      - name: {{ .Username }}
         groups: [sudo]
         shell: /bin/bash
         sudo: ALL=(ALL) NOPASSWD:ALL
         lock_passwd: false
-        plain_text_passwd: ${jsonencode(password)}
+        plain_text_passwd: {{ json .Password }}
