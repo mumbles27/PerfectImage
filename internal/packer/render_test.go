@@ -124,7 +124,11 @@ func TestRenderedTemplatesValidate(t *testing.T) {
 				t.Fatal(err)
 			}
 			dir := t.TempDir()
-			if err := Render(dir, im, steps, Vars(im, req, false, "validate")); err != nil {
+			vars := Vars(im, req, false, "validate")
+			if im.Seed != nil { // the service adds this after uploading the seed ISO
+				vars = append(vars, Var{"seed_iso_file", "local:iso/pi-seed-validate.iso"})
+			}
+			if err := Render(dir, im, steps, vars); err != nil {
 				t.Fatal(err)
 			}
 			for _, args := range [][]string{{"init", "."}, {"validate", "."}} {
