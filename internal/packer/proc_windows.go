@@ -24,4 +24,10 @@ func interrupt(cmd *exec.Cmd) error {
 	return nil
 }
 
-func killTree(*exec.Cmd) {}
+// killTree kills packer. Grandchildren (plugins) exit when packer's RPC
+// connection drops.
+func killTree(cmd *exec.Cmd) {
+	if cmd.Process != nil {
+		_ = cmd.Process.Kill()
+	}
+}

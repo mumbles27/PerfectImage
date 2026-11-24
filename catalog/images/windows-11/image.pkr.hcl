@@ -123,6 +123,7 @@ variable "build_password" {
 source "proxmox-iso" "image" {
   node                     = var.proxmox_node
   insecure_skip_tls_verify = var.proxmox_insecure
+  task_timeout             = "15m"
 
   vm_id                = var.vm_id
   vm_name              = "pi-build-${var.template_name}"
