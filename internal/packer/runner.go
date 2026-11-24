@@ -68,12 +68,32 @@ func (r Runner) Run(ctx context.Context, args []string, onStdout, onStderr func(
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start packer: %w", err)
 	}
+	// Enforce the kill deadline here rather than relying on WaitDelay alone:
+	// WaitDelay only starts inside cmd.Wait, which runs after the output
+	// readers finish, and a child process holding the pipes open would
+	// otherwise block them forever. Killing the process group closes them.
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-done:
+			return
+		case <-ctx.Done():
+		}
+		t := time.NewTimer(cmd.WaitDelay)
+		defer t.Stop()
+		select {
+		case <-done:
+		case <-t.C:
+			killTree(cmd)
+		}
+	}()
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() { defer wg.Done(); scanLines(stdout, onStdout) }()
 	go func() { defer wg.Done(); scanLines(stderr, onStderr) }()
 	wg.Wait()
 	err = cmd.Wait()
+	close(done)
 	killTree(cmd)
 	if ctx.Err() != nil {
 		return context.Cause(ctx)

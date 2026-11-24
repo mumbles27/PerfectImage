@@ -32,7 +32,9 @@ func (plugin) Name() string { return "integration" }
 // catalog plugin loads.
 func (plugin) Init(_ context.Context, d *app.Deps) error {
 	reg := proxmox.NewRegistry(d.DB, d.Sealer, d.Logger.With("component", "proxmox"), d.Config.Proxmox)
-	packer.SetClusterCreds(&ProxmoxCreds{Registry: reg})
+	creds := &ProxmoxCreds{Registry: reg, Logger: d.Logger}
+	packer.SetClusterCreds(creds)
+	d.OnShutdown(creds.Close)
 
 	cat := catalog.Shared(d.Config.Catalog.Dirs, d.Logger.With("component", "catalog"))
 	deploy.SetAppResolver(&CatalogResolver{Catalog: cat.Catalog})

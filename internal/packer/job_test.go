@@ -49,6 +49,13 @@ build)
   hang)
     trap 'echo "1700000001,,ui,say,interrupted%!(PACKER_COMMA) deleting VM"; exit 1' INT
     while :; do sleep 0.05; done ;;
+  wrapped)
+    # Like real packer (panicwrap): the parent catches and discards SIGINT
+    # and runs the real work in a foreground child, relying on the signal
+    # being delivered to the whole process group (as Ctrl-C does).
+    trap ':' INT
+    sh -c 'trap "echo \"1700000001,,ui,say,interrupted%!(PACKER_COMMA) deleting VM\"; exit 1" INT; while :; do sleep 0.05; done'
+    exit $? ;;
   fail)
     echo "1700000001,,ui,error,Build 'proxmox-iso.image' errored"; exit 1 ;;
   esac
@@ -252,31 +259,45 @@ func TestBuildJob(t *testing.T) {
 }
 
 func TestBuildJobCancel(t *testing.T) {
-	e := newJobEnv(t, "hang", "never")
-	b, err := e.svc.Submit(context.Background(), baseReq(), "alice")
-	if err != nil {
-		t.Fatal(err)
-	}
-	deadline := time.Now().Add(10 * time.Second)
-	for !strings.Contains(e.logs(t, b.JobID), "Creating VM") {
-		if time.Now().After(deadline) {
-			t.Fatal("build did not start")
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-	if err := e.mgr.Cancel(context.Background(), b.JobID); err != nil {
-		t.Fatal(err)
-	}
-	j := e.wait(t, b.JobID)
-	if j.Status != jobs.StatusCanceled {
-		t.Fatalf("status %s", j.Status)
-	}
-	if logs := e.logs(t, j.ID); !strings.Contains(logs, "interrupted, deleting VM") {
-		t.Fatalf("packer did not get an interrupt:\n%s", logs)
-	}
-	build, _ := e.svc.Build(context.Background(), b.ID)
-	if build.Status != jobs.StatusCanceled {
-		t.Fatalf("build row status %s", build.Status)
+	for _, mode := range []string{"hang", "wrapped"} {
+		t.Run(mode, func(t *testing.T) {
+			e := newJobEnv(t, mode, "never")
+			b, err := e.svc.Submit(context.Background(), baseReq(), "alice")
+			if err != nil {
+				t.Fatal(err)
+			}
+			deadline := time.Now().Add(10 * time.Second)
+			for !strings.Contains(e.logs(t, b.JobID), "Creating VM") {
+				if time.Now().After(deadline) {
+					t.Fatal("build did not start")
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+			time.Sleep(200 * time.Millisecond) // let the child install its trap
+			if err := e.mgr.Cancel(context.Background(), b.JobID); err != nil {
+				t.Fatal(err)
+			}
+			j := e.wait(t, b.JobID)
+			if j.Status != jobs.StatusCanceled {
+				t.Fatalf("status %s", j.Status)
+			}
+			// The job is marked canceled immediately; wait for the handler
+			// (and packer's cleanup output) to finish.
+			deadline = time.Now().Add(10 * time.Second)
+			for {
+				build, _ := e.svc.Build(context.Background(), b.ID)
+				if build.Status == jobs.StatusCanceled {
+					break
+				}
+				if time.Now().After(deadline) {
+					t.Fatalf("build row status %s", build.Status)
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+			if logs := e.logs(t, j.ID); !strings.Contains(logs, "interrupted, deleting VM") {
+				t.Fatalf("packer did not get an interrupt (it was killed without cleanup):\n%s", logs)
+			}
+		})
 	}
 }
 
