@@ -25,3 +25,8 @@ tags:
   - linux
   - rocky
   - rhel
+seed:
+  label: OEMDRV
+  files:
+    - name: ks.cfg
+      template: seed/ks.cfg.tmpl

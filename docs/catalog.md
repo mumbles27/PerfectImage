@@ -17,7 +17,8 @@ Every layer has the same layout:
 ```
 images/<id>/image.yaml      image metadata
 images/<id>/*.pkr.hcl       Packer template (see docs/packer.md)
-images/<id>/http/ ...       unattended-install files (Linux)
+images/<id>/seed/ ...       seed ISO templates (Ubuntu, Rocky)
+images/<id>/http/ ...       unattended-install files served over HTTP (Debian)
 images/<id>/answer/ ...     autounattend template (Windows)
 images/<id>/scripts/ ...    provisioning scripts
 apps/<id>.yaml              one app per file
@@ -91,15 +92,49 @@ an image is to copy the starter image closest to what you need:
 
 | Starter | Install media | Unattended install |
 |---|---|---|
-| `ubuntu-24.04` | official ISO URL + SHA256SUMS | autoinstall (`http/user-data.pkrtpl`) |
-| `debian-13` | official netinst URL + SHA256SUMS | preseed (`http/preseed.pkrtpl`) |
-| `rocky-9` | official boot ISO URL + CHECKSUM | kickstart (`http/ks.pkrtpl`) |
+| `ubuntu-24.04` | official ISO URL + SHA256SUMS | autoinstall on a `cidata` seed ISO (`seed/user-data.tmpl`) |
+| `debian-13` | official netinst URL + SHA256SUMS | preseed over HTTP (`http/preseed.pkrtpl`) |
+| `rocky-9` | official boot ISO URL + CHECKSUM | kickstart on an `OEMDRV` seed ISO (`seed/ks.cfg.tmpl`) |
 | `windows-server-2022`, `windows-server-2025` | user-supplied `iso_file` | `answer/autounattend.pkrtpl.xml` |
 | `windows-11` (UEFI + TPM) | user-supplied `iso_file` | `answer/autounattend.pkrtpl.xml` |
 
 When a point release changes an ISO file name, update both `iso.url` in
 `image.yaml` and the `iso_url` default in `image.pkr.hcl`. A build always
 uses the value from `image.yaml`.
+
+### Seed ISOs (installer answers without HTTP)
+
+An image can declare a `seed:` block. For every build, PerfectImage renders
+the listed files, packs them into a small ISO 9660 image (Rock Ridge +
+Joliet, built in-process, so no `xorriso`/`oscdimg` is needed), uploads it to
+the build's ISO storage as `pi-seed-<build>.iso` and passes its volume id as
+the Packer variable `seed_iso_file`. The ISO is deleted when the build ends,
+whether it succeeded, failed or was canceled.
+
+```yaml
+seed:
+  label: cidata               # volume label the installer looks for
+  files:
+    - name: user-data
+      template: seed/user-data.tmpl
+    - name: meta-data          # no template: empty file
+```
+
+Templates are Go `text/template` files rendered with `.Username` and
+`.Password` (the temporary build user) and a `json` function. The image's
+`image.pkr.hcl` must declare `variable "seed_iso_file"` and attach it with an
+`additional_iso_files` block.
+
+Why: with HTTP the build VM must reach Packer's HTTP server on the
+PerfectImage host, which host firewalls (ufw, Windows Firewall) block by
+default. With a seed ISO all traffic goes from PerfectImage to the Proxmox
+API. Debian's preseed cannot be read from a second CD, so `debian-13` still
+uses HTTP: allow TCP 8000-9000 from the build VLAN to the PerfectImage host
+for Debian builds.
+
+The seed ISO contains the temporary build password in clear text while the
+build runs (the same data the HTTP server used to serve). Restrict who can
+read the ISO storage on Proxmox accordingly.
 
 ## Apps
 

@@ -3,6 +3,7 @@ package catalog
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"net/url"
@@ -10,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"text/template"
 
 	"gopkg.in/yaml.v3"
 )
@@ -333,7 +335,64 @@ func validateImage(img *Image, root *yaml.Node, file string) []Problem {
 	for i, t := range img.Tags {
 		c.match(k("tags", i), "tag", t, tagRE)
 	}
+	if s := img.Seed; s != nil {
+		if c.required(k("seed", "label"), "seed.label", s.Label) {
+			c.match(k("seed", "label"), "seed.label", s.Label, seedLabelRE)
+		}
+		if len(s.Files) == 0 {
+			c.at(k("seed", "files"), "seed.files must list at least one file")
+		}
+		seen := map[string]bool{}
+		for i, f := range s.Files {
+			if c.required(k("seed", "files", i, "name"), "seed file name", f.Name) {
+				c.match(k("seed", "files", i, "name"), "seed file name", f.Name, seedNameRE)
+			}
+			if seen[f.Name] {
+				c.at(k("seed", "files", i, "name"), "seed file %q is listed twice", f.Name)
+			}
+			seen[f.Name] = true
+			if f.Template != "" && (!relPathRE.MatchString(f.Template) || slices.Contains(strings.Split(f.Template, "/"), "..")) {
+				c.at(k("seed", "files", i, "template"), "seed template must be a relative path inside the image directory")
+			}
+		}
+	}
 	return c.probs
+}
+
+var (
+	seedLabelRE = regexp.MustCompile(`^[A-Za-z0-9_]{1,32}$`)
+	seedNameRE  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
+)
+
+// SeedFuncs are the functions available to seed templates.
+var SeedFuncs = template.FuncMap{
+	"json": func(v any) (string, error) {
+		b, err := json.Marshal(v)
+		return string(b), err
+	},
+}
+
+// validateSeedFiles checks that seed templates exist and parse.
+func validateSeedFiles(img *Image, fsys fs.FS, dir string) []Problem {
+	if img.Seed == nil {
+		return nil
+	}
+	var probs []Problem
+	for _, f := range img.Seed.Files {
+		if f.Template == "" {
+			continue
+		}
+		file := path.Join(dir, f.Template)
+		b, err := fs.ReadFile(fsys, f.Template)
+		if err != nil {
+			probs = append(probs, Problem{File: file, Message: "seed template not found"})
+			continue
+		}
+		if _, err := template.New(f.Name).Funcs(SeedFuncs).Parse(string(b)); err != nil {
+			probs = append(probs, Problem{File: file, Message: "seed template: " + err.Error()})
+		}
+	}
+	return probs
 }
 
 // validateImageFiles checks the Packer files of an image directory.

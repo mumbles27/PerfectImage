@@ -1,6 +1,7 @@
 package proxmox
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -107,11 +109,18 @@ type UploadOptions struct {
 	// sha512) make PVE verify the upload.
 	Checksum          string
 	ChecksumAlgorithm string
+	// Size is the number of bytes r will provide. When zero it is taken from
+	// r if r is an *os.File or has a Len() method (bytes/strings readers).
+	Size int64
 }
 
 // UploadISO streams r to storage as filename and returns the task UPID.
 // The upload is bounded only by ctx (no per-request timeout) and is never
 // retried.
+//
+// The request is sent with a fixed Content-Length: Proxmox rejects chunked
+// transfer encoding ("501 chunked transfer encoding not supported"), so the
+// size of r must be known (see UploadOptions.Size).
 func (c *Client) UploadISO(ctx context.Context, node, storage, filename string, r io.Reader, o UploadOptions) (string, error) {
 	if filename == "" || strings.ContainsAny(filename, `/\`) {
 		return "", errors.New("proxmox: invalid upload filename")
@@ -119,35 +128,83 @@ func (c *Client) UploadISO(ctx context.Context, node, storage, filename string, 
 	if o.Content == "" {
 		o.Content = "iso"
 	}
-	pr, pw := io.Pipe()
-	mw := multipart.NewWriter(pw)
-	go func() {
-		err := func() error {
-			fields := [][2]string{{"content", o.Content}}
-			if o.Checksum != "" {
-				fields = append(fields, [2]string{"checksum", o.Checksum}, [2]string{"checksum-algorithm", o.ChecksumAlgorithm})
-			}
-			for _, f := range fields {
-				if err := mw.WriteField(f[0], f[1]); err != nil {
-					return err
-				}
-			}
-			part, err := mw.CreateFormFile("filename", filename)
+	size := o.Size
+	if size <= 0 {
+		switch v := r.(type) {
+		case interface{ Len() int }:
+			size = int64(v.Len())
+		case *os.File:
+			st, err := v.Stat()
 			if err != nil {
-				return err
+				return "", fmt.Errorf("proxmox: upload size: %w", err)
 			}
-			if _, err := io.Copy(part, r); err != nil {
-				return err
+			cur, err := v.Seek(0, io.SeekCurrent)
+			if err != nil {
+				return "", fmt.Errorf("proxmox: upload size: %w", err)
 			}
-			return mw.Close()
-		}()
-		_ = pw.CloseWithError(err)
-	}()
+			size = st.Size() - cur
+		default:
+			return "", errors.New("proxmox: upload size unknown (set UploadOptions.Size)")
+		}
+	}
+
+	// Build the multipart framing around the file so the total length is
+	// known while the file itself is still streamed.
+	var head bytes.Buffer
+	mw := multipart.NewWriter(&head)
+	fields := [][2]string{{"content", o.Content}}
+	if o.Checksum != "" {
+		// PVE's streaming upload parser needs the algorithm before the
+		// checksum; the other order fails with a bare "400 Bad Request".
+		fields = append(fields, [2]string{"checksum-algorithm", o.ChecksumAlgorithm}, [2]string{"checksum", o.Checksum})
+	}
+	for _, f := range fields {
+		if err := mw.WriteField(f[0], f[1]); err != nil {
+			return "", err
+		}
+	}
+	if _, err := mw.CreateFormFile("filename", filename); err != nil {
+		return "", err
+	}
+	tail := "\r\n--" + mw.Boundary() + "--\r\n" // what mw.Close would write
+	body := io.MultiReader(bytes.NewReader(head.Bytes()), &exactReader{r: r, n: size}, strings.NewReader(tail))
+	length := int64(head.Len()) + size + int64(len(tail))
+
 	path := "/nodes/" + seg(node) + "/storage/" + seg(storage) + "/upload"
 	var upid string
-	err := c.send(ctx, http.MethodPost, path, c.base+path, pr, mw.FormDataContentType(), 0, &upid)
-	_ = pr.Close()
+	err := c.send(ctx, http.MethodPost, path, c.base+path, sizedBody{Reader: body, n: length}, mw.FormDataContentType(), 0, &upid)
 	return upid, err
+}
+
+// sizedBody marks a request body with a known length for send.
+type sizedBody struct {
+	io.Reader
+	n int64
+}
+
+// exactReader yields exactly n bytes from r and fails if r ends early, so a
+// short source cannot leave the server waiting for the declared length.
+type exactReader struct {
+	r io.Reader
+	n int64
+}
+
+func (e *exactReader) Read(p []byte) (int, error) {
+	if e.n <= 0 {
+		return 0, io.EOF
+	}
+	if int64(len(p)) > e.n {
+		p = p[:e.n]
+	}
+	k, err := e.r.Read(p)
+	e.n -= int64(k)
+	if err == io.EOF {
+		if e.n > 0 {
+			return k, io.ErrUnexpectedEOF
+		}
+		return k, io.EOF
+	}
+	return k, err
 }
 
 // DownloadURLOptions configures DownloadURL.
@@ -179,6 +236,18 @@ func (c *Client) DownloadURL(ctx context.Context, node, storage string, o Downlo
 	}
 	var upid string
 	err := c.post(ctx, "/nodes/"+seg(node)+"/storage/"+seg(storage)+"/download-url", f, &upid)
+	return upid, err
+}
+
+// DeleteVolume deletes a storage volume (e.g. "local:iso/seed.iso") and
+// returns the task UPID (empty when PVE deletes synchronously).
+func (c *Client) DeleteVolume(ctx context.Context, node, volid string) (string, error) {
+	storage, _, ok := strings.Cut(volid, ":")
+	if !ok || storage == "" {
+		return "", fmt.Errorf("proxmox: invalid volume id %q", volid)
+	}
+	var upid string
+	err := c.delete(ctx, "/nodes/"+seg(node)+"/storage/"+seg(storage)+"/content/"+seg(volid), nil, &upid)
 	return upid, err
 }
 

@@ -374,6 +374,10 @@ func (c *Client) send(ctx context.Context, method, path, u string, body io.Reade
 	if err != nil {
 		return fmt.Errorf("proxmox: build request: %w", err)
 	}
+	if sb, ok := body.(sizedBody); ok {
+		// A known length avoids chunked encoding, which PVE rejects.
+		req.ContentLength = sb.n
+	}
 	req.Header.Set("Authorization", "PVEAPIToken="+c.tokenID+"="+c.secret)
 	req.Header.Set("Accept", "application/json")
 	if ctype != "" {

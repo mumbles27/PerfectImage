@@ -72,7 +72,7 @@ variable "bridge" {
 
 variable "iso_url" {
   type    = string
-  default = "https://releases.ubuntu.com/24.04/ubuntu-24.04.3-live-server-amd64.iso"
+  default = "https://releases.ubuntu.com/24.04/ubuntu-24.04.5-live-server-amd64.iso"
 }
 
 variable "iso_checksum" {
@@ -100,6 +100,11 @@ variable "build_password" {
   type        = string
   sensitive   = true
   description = "Temporary password of the build user; random per build."
+}
+
+variable "seed_iso_file" {
+  type        = string
+  description = "Per-build seed ISO uploaded by PerfectImage (installer answers)."
 }
 
 source "proxmox-iso" "image" {
@@ -154,18 +159,16 @@ source "proxmox-iso" "image" {
   cloud_init              = true
   cloud_init_storage_pool = var.storage_pool
 
-  http_content = {
-    "/meta-data" = ""
-    "/user-data" = templatefile("${path.root}/http/user-data.pkrtpl", {
-      username = var.build_username
-      password = var.build_password
-    })
+  additional_iso_files {
+    type     = "sata"
+    iso_file = var.seed_iso_file
+    unmount  = true
   }
 
   boot_wait = "10s"
   boot_command = [
     "<wait3s>c<wait3s>",
-    "linux /casper/vmlinuz --- autoinstall ds=\"nocloud-net;seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/\"<enter><wait>",
+    "linux /casper/vmlinuz --- autoinstall ds=nocloud<enter><wait>",
     "initrd /casper/initrd<enter><wait>",
     "boot<enter>"
   ]

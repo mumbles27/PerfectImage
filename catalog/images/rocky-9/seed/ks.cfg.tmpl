@@ -1,4 +1,5 @@
-# Rocky Linux 9 kickstart, rendered by Packer's templatefile().
+# Rocky Linux 9 kickstart. PerfectImage renders this Go template into the
+# "OEMDRV" seed ISO attached to the build VM (inst.ks=hd:LABEL=OEMDRV:/ks.cfg).
 text
 reboot
 eula --agreed
@@ -17,7 +18,7 @@ network --bootproto=dhcp --device=link --activate --hostname=rocky9.local
 
 # Root locked; one build user in wheel with a temporary password.
 rootpw --lock
-user --name=${username} --password=${password} --plaintext --groups=wheel
+user --name={{ .Username }} --password={{ .Password }} --plaintext --groups=wheel
 
 zerombr
 clearpart --all --initlabel
@@ -35,7 +36,7 @@ sudo
 
 %post --erroronfail
 # Passwordless sudo for the build user during the build only; cleanup.sh removes it.
-echo '${username} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/99-pi-build
+echo '{{ .Username }} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/99-pi-build
 chmod 0440 /etc/sudoers.d/99-pi-build
 systemctl enable qemu-guest-agent sshd
 %end
