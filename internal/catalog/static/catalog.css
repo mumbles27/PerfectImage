@@ -29,3 +29,5 @@ button.secondary { background: #fff; color: var(--accent); }
 .checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .25rem .75rem; }
 .checks label { flex-direction: row; align-items: center; gap: .4rem; font-size: 14px; color: var(--fg); }
 .hint { color: var(--muted); font-size: 12px; }
+textarea.script { width: 100%; font-family: ui-monospace, "Cascadia Mono", Menlo, monospace; font-size: 13px; padding: .6rem; border: 1px solid var(--border); border-radius: 8px; tab-size: 4; }
+pre.script { max-height: 24rem; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: .6rem; font-size: 13px; }

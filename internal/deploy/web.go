@@ -83,6 +83,7 @@ type formValues struct {
 	CIUser, SSHKeys                                      string
 	Hostname, Domain, DomainUser, DomainOU               string
 	Apps                                                 []string
+	PostScript                                           string
 }
 
 func (f formValues) HasApp(id string) bool {
@@ -322,6 +323,7 @@ func formFrom(r *http.Request) formValues {
 		IPMode: g("ip_mode"), IPCIDR: g("ip_cidr"), Gateway: g("gateway"), DNS: g("dns"), SearchDomain: g("search_domain"),
 		CIUser: g("ci_user"), SSHKeys: pf.Get("ssh_keys"), Hostname: g("hostname"), Domain: g("domain"),
 		DomainUser: g("domain_user"), DomainOU: g("domain_ou"), Apps: pf["apps"],
+		PostScript: strings.ReplaceAll(pf.Get("post_script"), "\r\n", "\n"),
 	}
 }
 
@@ -343,6 +345,9 @@ func (m *module) buildRequest(ctx context.Context, r *http.Request, f formValues
 		RequestID: NewRequestID(), Cluster: f.Cluster, Node: f.Node, Storage: f.Storage, Pool: f.Pool,
 		Name: f.Name, LinkedClone: f.LinkedClone, Bridge: f.Bridge, IPMode: f.IPMode, IPCIDR: f.IPCIDR,
 		Gateway: f.Gateway, SearchDomain: f.SearchDomain, CleanupOnFailure: f.Cleanup, Apps: f.Apps,
+	}
+	if strings.TrimSpace(f.PostScript) != "" {
+		req.PostScript = f.PostScript
 	}
 	req.VMID = atoiField(&errs, "VMID", f.VMID)
 	req.Cores = atoiField(&errs, "Cores", f.Cores)

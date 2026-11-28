@@ -288,7 +288,11 @@ proxmox:
    - **PowerShell:** the script is written to `C:\Windows\Temp\perfectimage-*.ps1`,
      run with `powershell.exe -File` and deleted afterwards.
    - A non-zero exit code fails the job. So does a failing `VerifyScript`.
-8. On failure with **Delete the VM if any step fails** checked, stop and
+8. Run the optional **post-deploy script** the same way: Bash as root on
+   Linux, PowerShell as SYSTEM on Windows, up to 60,000 bytes. A non-zero
+   exit code fails the job. The script is part of the job payload, so it
+   must not contain secrets.
+9. On failure with **Delete the VM if any step fails** checked, stop and
    destroy the VM. Otherwise leave it in place for inspection.
 
 Every step is written to the job log, which streams live at `/jobs/{id}`. The

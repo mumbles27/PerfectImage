@@ -1,29 +1,62 @@
 # PerfectImage
 
-PerfectImage builds Proxmox VE VM templates with HashiCorp Packer. It then
-deploys VMs from those templates and installs selected applications on Linux
-and Windows guests. It ships as a single Go binary that runs as a **Windows
-service** or a **systemd unit** and serves an embedded web UI over HTTPS.
+PerfectImage is a web console for building and deploying virtual machine
+images. You pick an operating system, apps, OS settings and an optional
+post-install script, and PerfectImage drives HashiCorp Packer to build a
+template. It can then deploy VMs from that template, with networking,
+cloud-init or Windows customization, and post-deploy apps and scripts. It
+ships as a single Go binary that runs as a **Windows service** or a
+**systemd unit** and serves an embedded web UI over HTTPS.
 
-> Status: **foundation release.** The service skeleton is in place: config,
-> logging, secrets, SQLite store, job queue and web UI shell. Authentication,
-> Proxmox, Packer and ops features are being built in phases (see the
-> [Roadmap](#roadmap)).
+> Status: **Proxmox VE is supported end to end.** VMware vSphere, Hyper-V,
+> VirtualBox, AWS and Azure are planned: see
+> [docs/roadmap.md](docs/roadmap.md).
 
-## Features (foundation)
+## Features
 
-- Single static binary with no CGO, using pure-Go SQLite (modernc.org/sqlite)
-- HTTPS by default, with a self-signed certificate generated on first run
-- Strict CSP, HSTS and cross-origin CSRF protection
-- Persistent background job queue with cancellation and live log streaming
-  (Server-Sent Events)
-- Structured JSON logging with rotation and pluggable sinks for SIEM
-  forwarding
-- AES-256-GCM sealing of secrets at rest. The master key is protected by
-  DPAPI on Windows and stored in a 0600 key file on Linux.
-- Role-based access control: built-in Admin, Operator, Builder and Viewer
-  roles with fine-grained permissions
-- Server-rendered UI (`html/template` + htmx). No Node toolchain is needed.
+**Build images** (`/build`; see [docs/packer.md](docs/packer.md))
+
+- Starter images: Ubuntu 24.04, Debian 13, Rocky 9, Windows 11 and Windows
+  Server 2022/2025 (Standard or Datacenter, Desktop Experience or Core).
+- Targets come live from the chosen cluster: nodes, storages, bridges and
+  ISO files, with each cluster's saved defaults filled in.
+- OS settings: time zone, locale, keyboard, and an option to install all OS
+  updates (apt/dnf, or Windows Update with restarts). On Windows the
+  settings are carried through Sysprep to every clone.
+- 30+ catalog apps and bundles (winget, Chocolatey, MSI/EXE, apt, dnf,
+  snap, flatpak, tarballs), each with a verify check.
+- An optional Bash or PowerShell **post-install script**, with an optional
+  restart afterwards.
+- Unattended installs, using seed ISOs or answer CDs, so the build VM
+  doesn't need to reach back to the server.
+- Live build logs, history and an audit trail.
+
+**Deploy VMs** (`/deploy`; see [docs/proxmox.md](docs/proxmox.md))
+
+- Full or linked clones with CPU, memory, disk, bridge/VLAN and DHCP or a
+  static IP.
+- Linux: a cloud-init user and SSH keys.
+- Windows: an Administrator password, hostname and domain join.
+- Post-deploy apps and an optional post-deploy script, run through the
+  QEMU guest agent.
+
+**Connect any Proxmox** (Settings → Proxmox)
+
+- Add, test, edit and delete clusters in the UI.
+- API tokens are sealed at rest. TLS can use a pinned CA or a pinned
+  certificate fingerprint; insecure mode is for labs only.
+
+**Platform**
+
+- Local users with TOTP MFA, OIDC and LDAP sign-in, API tokens, and
+  built-in and custom roles.
+- A hash-chained audit log, SIEM forwarding (syslog/CEF, HTTP, Splunk HEC)
+  and encrypted scheduled backups.
+- A single static binary with pure-Go SQLite, HTTPS by default, a strict
+  CSP, CSRF tokens, and AES-256-GCM secrets protected by DPAPI or a key
+  file.
+- A server-rendered UI (`html/template` + htmx), so no Node toolchain is
+  needed.
 
 ## Quickstart (development)
 
@@ -37,9 +70,16 @@ go run ./cmd/perfectimage serve --config config.example.yaml
 curl -k https://127.0.0.1:8443/healthz
 ```
 
-Sign-in pages arrive with the auth module. Until then, set
-`auth.dev_allow_all: true` in a **local copy** of the config to browse the UI.
-This setting is only accepted on loopback listeners.
+On first start the service creates an `admin` user with a one-time password.
+It prints the password to the console and writes it to
+`<data_dir>/secrets/initial-admin-password.txt`; see
+[docs/auth.md](docs/auth.md). For quick local UI work you can instead set
+`auth.dev_allow_all: true` in a **local copy** of the config. That setting
+is only accepted on loopback listeners.
+
+To run builds, the host also needs `packer` (see
+[docs/packer.md](docs/packer.md#requirements-on-the-perfectimage-host)) and
+a Proxmox API token (see [docs/proxmox.md](docs/proxmox.md)).
 
 Useful targets:
 
@@ -89,9 +129,9 @@ perfectimage serve      [--config path]   run (foreground, or under SCM/systemd)
 perfectimage install    [--config path]   register the service
 perfectimage uninstall | start | stop | status
 perfectimage version
-perfectimage backup | restore             (ops phase)
-perfectimage catalog validate             (packer phase)
-perfectimage user reset-admin             (auth phase)
+perfectimage backup | restore             encrypted backup / restore (docs/backup.md)
+perfectimage catalog validate             check catalog images, apps and bundles
+perfectimage user reset-admin             recover the admin account
 ```
 
 The default config path is `/etc/perfectimage/config.yaml` on Linux and
@@ -110,44 +150,39 @@ internal/secrets     AES-256-GCM Sealer, DPAPI / key-file master key
 internal/store       SQLite + per-namespace embedded migrations
 internal/jobs        persistent job queue, workers, log writer, pub/sub hub
 internal/web         router, middleware, templates, htmx, Module interface, core pages
-internal/auth        Principal, Authenticator, Authorizer          (auth phase)
-internal/rbac        permissions, built-in roles                    (auth phase)
-internal/audit       Event, Recorder                                (ops phase)
-internal/proxmox     Proxmox VE client                              (proxmox phase)
-internal/deploy      VM deploy + app install                        (proxmox phase)
-internal/packer      Packer build driver                            (packer phase)
-internal/catalog     image/app catalog loader + validator           (packer phase)
-internal/siem        SIEM forwarders                                (ops phase)
-internal/backup      backup/restore                                 (ops phase)
+internal/auth        users, sessions, MFA, OIDC/LDAP, API tokens, CSRF
+internal/rbac        permissions, built-in roles
+internal/audit       Event, Recorder, hash-chained audit log + /audit UI
+internal/proxmox     Proxmox VE client, cluster registry, TLS relay, /settings/proxmox
+internal/deploy      VM deploy wizard + job (clone, customize, apps, post-deploy script)
+internal/packer      build wizard + job (render, OS settings/updates, post-install script, run packer)
+internal/catalog     image/app catalog loader, validator, editor
+internal/integration wires proxmox -> packer (creds, inventory, seed ISOs) and catalog -> deploy
+internal/siem        SIEM forwarders
+internal/backup      backup/restore
 catalog/             Packer templates and app definitions
 ```
 
 ## Roadmap
 
-1. **Foundation** (this release): service skeleton, config, logging, secrets,
-   store/migrations, job queue, web shell, CI.
-2. **Auth**:
-   - Local users with strong password hashing, sessions, login/logout and
-     CSRF tokens
-   - Role management with custom roles
-   - `user reset-admin`
-   - Optional OIDC/LDAP
-3. **Proxmox**:
-   - Cluster connections with sealed API tokens and pinned CAs
-   - Inventory
-   - VM deploy from templates (clone, cloud-init / sysprep)
-   - Post-deploy app installation for Linux (SSH) and Windows (WinRM)
-4. **Packer**:
-   - Image catalog (Linux and Windows templates)
-   - Build jobs with live logs
-   - Template versioning
-   - App catalog
-   - `catalog validate`
-5. **Ops**:
-   - Persistent audit log and Audit UI
-   - SIEM forwarding (syslog/CEF, HTTP, Splunk HEC)
-   - Scheduled backup/restore
-   - Metrics
+Done:
+
+- Foundation: the service, config, secrets, store, jobs and web UI
+- Auth
+- Proxmox clusters and deploy
+- Packer builds with the image and app catalog
+- Ops: audit, SIEM and backup
+- Build wizard options: live inventory, OS settings, OS updates, Windows
+  editions, and post-install and post-deploy scripts
+
+Next:
+
+- **More build targets:** VMware vSphere, Hyper-V, VirtualBox, AWS and
+  Azure, behind a common target interface. See
+  [docs/roadmap.md](docs/roadmap.md) for the design and the parts that are
+  Proxmox-specific today.
+- A script library, product keys for more Windows editions, saved build
+  presets with scheduled rebuilds, and template versioning.
 
 ## Contributing
 

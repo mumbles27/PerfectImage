@@ -110,6 +110,10 @@ packer.SetClusterCreds(provider) // e.g. from the proxmox plugin's Init
 - If the provider also implements `packer.Inventory`
   (`Clusters`, `Nodes`, `Storages`), the wizard offers those lists.
   Otherwise the cluster list comes from `proxmox.clusters` in the config.
+- If it also implements `packer.MediaInventory` (`Bridges`, `ISOStorages`,
+  `ISOs`, `Defaults`), the wizard offers bridges and ISO files too, and
+  prefills the cluster's saved defaults. `internal/integration` implements
+  both on top of the Proxmox cluster registry.
 
 Until a provider is installed, builds fail with `ErrNoCreds`.
 
@@ -121,18 +125,79 @@ uploads.
 ## Build wizard
 
 `/build` (`images.view`) lists the build history from the `packer_builds`
-table. Users with `images.build` also get the wizard, which asks for:
+table. Users with `images.build` also get the wizard, which has these
+sections:
 
-- **image**: switching image reloads the form;
-- **cluster, node, storages and bridge**;
-- **resource overrides**: leave empty to keep the image defaults;
-- **install ISO / virtio-win ISO**;
-- **apps and bundles**: only those available for the image's OS are shown;
-- **whether to skip the image's default apps**;
-- **template name and VMID**: `0` means the next free VMID.
+1. **Operating system**: the catalog image, plus the **edition** for images
+   that list `editions` (Windows Server: Standard/Datacenter, Desktop
+   Experience or Core). The edition sets the `windows_image_name` variable.
+2. **Target**: cluster, node, disk storage, bridge and ISO storage. With the
+   Proxmox integration these are live drop-downs. Changing the image,
+   cluster or node re-renders the form (`POST /build/form`, htmx) and keeps
+   everything already entered. The node defaults to the cluster's saved
+   default node. Disk storage and bridge fall back to the cluster's saved
+   defaults when the image's own defaults do not exist on that node. If a
+   cluster cannot be reached, the form says so and falls back to free text.
+3. **Hardware and install media**: cores, memory and disk overrides, and the
+   install / virtio-win ISO, picked from the ISOs on every ISO storage of
+   the node. PerfectImage's own temporary `pi-seed-*` ISOs are hidden.
+4. **OS settings**: time zone, locale and keyboard, plus **install all OS
+   updates** (see below). Empty fields keep the installer defaults.
+5. **Apps and bundles**: only those available for the image's OS are shown,
+   with an option to skip the image's default apps.
+6. **Post-install script**: optional Bash (Linux, run as root) or PowerShell
+   (Windows, run as the build administrator), up to 64 KiB, optionally
+   followed by a restart. A non-zero exit code fails the build. The script
+   is stored with the build record and shown on `/build/<id>`; the
+   `image.build.start` audit event records its SHA-256 and size. Do not put
+   secrets in it.
+7. **Template**: template name (regenerated on image change unless you
+   edited it) and VMID (`0` means the next free VMID).
 
 Submitting enqueues a `packer.build` job and redirects to its live log at
-`/jobs/<id>`. `/build/<id>` shows a single build.
+`/jobs/<id>`. `/build/<id>` shows a single build, including its OS settings
+and post-install script.
+
+### Provisioning order
+
+All generated steps replace the image's `# @perfectimage:apps` marker, so
+they run after base provisioning and before cleanup / generalization:
+
+1. **OS settings** (`_os-settings`):
+   - Linux: `timedatectl` (or `/etc/localtime`), `locale-gen` +
+     `update-locale` on Debian/Ubuntu or a glibc langpack + `localectl` on
+     RHEL, and the XKB layout in `/etc/default/keyboard` or `localectl`.
+   - Windows: `Set-TimeZone` and `Set-WinSystemLocale` (followed by a
+     restart when the locale changes). The values are also saved to
+     `C:\Windows\Panther\perfectimage-settings.json`. The catalog's
+     `sysprep.ps1` reads that file and writes `TimeZone` and
+     `Microsoft-Windows-International-Core` (`InputLocale`, `SystemLocale`,
+     `UserLocale`) into the oobeSystem pass of the generalize answer file,
+     so every clone and every new user profile gets them.
+2. **OS updates** (`_os-updates`):
+   - Linux: `apt-get dist-upgrade` or `dnf upgrade --refresh`, then a
+     reboot.
+   - Windows: three Windows Update passes through the Windows Update Agent
+     API, each followed by a `windows-restart`. The API refuses to download
+     or install from a WinRM network logon, so these provisioners use
+     Packer's **elevated** mode (`elevated_user` / `elevated_password` =
+     the build user, run as a scheduled task). Updates that fail are
+     reported in the log and retried by the next pass; they do not fail the
+     build. Expect an hour or more on a fresh ISO.
+3. **Apps**, in dependency order.
+4. **Post-install script** (`_post-install`), plus a restart if requested.
+
+Step ids starting with `_` are reserved for these generated steps (catalog
+app ids cannot start with `_`). The build record's `Apps` lists only catalog
+apps.
+
+Values are validated per OS before anything is rendered:
+
+| Field | Linux | Windows |
+|---|---|---|
+| Time zone | IANA name (`UTC`, `Europe/Berlin`) | Windows id (`W. Europe Standard Time`, see `tzutil /l`) |
+| Locale | `en-US`, `en_US` or `en_US.UTF-8` (rendered as `en_US.UTF-8`) | same forms (rendered as `en-US`) |
+| Keyboard | XKB layout with optional variant (`de`, `us-intl`) | input locale (`de-DE` or `0407:00000407`) |
 
 ## Image template contract
 

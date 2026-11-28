@@ -11,6 +11,12 @@
   <dt>Target</dt><dd>cluster {{.Cluster}}, node {{.Node}}</dd>
   <dt>Template VMID</dt><dd>{{if .ArtifactID}}{{.ArtifactID}}{{else if .VMID}}{{.VMID}} (requested){{else}}auto{{end}}</dd>
   <dt>Apps</dt><dd>{{range $i, $a := .Apps}}{{if $i}}, {{end}}<a href="/catalog/apps/{{$a}}">{{$a}}</a>{{else}}none{{end}}</dd>
+  {{with .Request.Settings}}
+  {{with .WindowsEdition}}<dt>Edition</dt><dd>{{.}}</dd>{{end}}
+  {{if or .Timezone .Locale .Keyboard}}<dt>OS settings</dt><dd>{{with .Timezone}}time zone {{.}}; {{end}}{{with .Locale}}locale {{.}}; {{end}}{{with .Keyboard}}keyboard {{.}}{{end}}</dd>{{end}}
+  <dt>OS updates</dt><dd>{{if .Updates}}{{if eq (print $.Data.OSFamily) "windows"}}Windows Update{{else}}all available{{end}}, installed before the apps{{else}}not installed{{end}}</dd>
+  {{end}}
+  {{with .Request.PostScript}}{{if .Script}}<dt>Post-install script</dt><dd>{{if .Reboot}}followed by a restart{{else}}no restart{{end}}<pre class="script">{{.Script}}</pre></dd>{{end}}{{end}}
   <dt>Created</dt><dd>{{fmtTime .CreatedAt}} by {{.CreatedBy}}</dd>
   <dt>Started</dt><dd>{{fmtTime .StartedAt}}</dd>
   <dt>Finished</dt><dd>{{fmtTime .FinishedAt}}</dd>

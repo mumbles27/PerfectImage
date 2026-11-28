@@ -1,0 +1,4 @@
+# Keep LF everywhere: shell scripts, HCL and Go must not get CRLF on Windows
+# checkouts (Linux guests run catalog scripts verbatim; gofmt rejects CRLF).
+* text=auto eol=lf
+*.ps1 text eol=lf

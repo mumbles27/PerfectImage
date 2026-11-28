@@ -330,6 +330,23 @@ func (d *deployment) run(ctx context.Context) (*Result, error) {
 		d.step(7, "%s installed", s.Name)
 	}
 
+	// 8. Post-deploy script.
+	if req.PostScript != "" {
+		shell := ShellBash
+		if req.OS == OSWindows {
+			shell = ShellPowerShell
+		}
+		d.step(8, "Running the post-deploy script (%d bytes, %s)", len(req.PostScript), shell)
+		code, err := d.runScript(ctx, shell, req.PostScript, "")
+		if err != nil {
+			return nil, fmt.Errorf("post-deploy script: %w", err)
+		}
+		if code != 0 {
+			return nil, fmt.Errorf("post-deploy script exited with code %d", code)
+		}
+		d.step(8, "Post-deploy script finished")
+	}
+
 	d.refreshIPs(ctx, false)
 	d.log.Printf("Deployment of %q (VM %d on %s) succeeded. IP addresses: %s", req.Name, d.vmid, d.node, orNone(d.ips))
 	return &Result{Cluster: req.Cluster, Node: d.node, VMID: d.vmid, Name: req.Name, IPAddresses: d.ips, Apps: req.Apps}, nil

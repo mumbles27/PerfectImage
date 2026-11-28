@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log/slog"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/mumbles27/PerfectImage/internal/packer"
@@ -36,8 +37,9 @@ type relayEntry struct {
 }
 
 var (
-	_ packer.ClusterCreds = (*ProxmoxCreds)(nil)
-	_ packer.Inventory    = (*ProxmoxCreds)(nil)
+	_ packer.ClusterCreds   = (*ProxmoxCreds)(nil)
+	_ packer.Inventory      = (*ProxmoxCreds)(nil)
+	_ packer.MediaInventory = (*ProxmoxCreds)(nil)
 )
 
 // Creds implements packer.ClusterCreds.
@@ -200,4 +202,72 @@ func (p *ProxmoxCreds) Storages(ctx context.Context, cluster, node string) ([]st
 	}
 	sort.Strings(out)
 	return out, nil
+}
+
+// Bridges implements packer.MediaInventory: Linux and OVS bridges on node.
+func (p *ProxmoxCreds) Bridges(ctx context.Context, cluster, node string) ([]string, error) {
+	cl, err := p.Registry.Client(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	ifs, err := cl.Networks(ctx, node, "any_bridge")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(ifs))
+	for _, n := range ifs {
+		out = append(out, n.Iface)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// ISOStorages implements packer.MediaInventory: storages on node that can
+// hold ISO images.
+func (p *ProxmoxCreds) ISOStorages(ctx context.Context, cluster, node string) ([]string, error) {
+	cl, err := p.Registry.Client(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	sts, err := cl.Storages(ctx, node, "iso")
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(sts))
+	for _, s := range sts {
+		out = append(out, s.Storage)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// ISOs implements packer.MediaInventory. PerfectImage's own temporary seed
+// ISOs (pi-seed-*.iso) are left out.
+func (p *ProxmoxCreds) ISOs(ctx context.Context, cluster, node, storage string) ([]string, error) {
+	cl, err := p.Registry.Client(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+	items, err := cl.ISOs(ctx, node, storage)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(items))
+	for _, it := range items {
+		if strings.HasPrefix(it.VolID[strings.LastIndexByte(it.VolID, '/')+1:], "pi-seed-") {
+			continue
+		}
+		out = append(out, it.VolID)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// Defaults implements packer.MediaInventory from the cluster record.
+func (p *ProxmoxCreds) Defaults(ctx context.Context, cluster string) (packer.TargetDefaults, error) {
+	c, err := p.Registry.Store().GetByName(ctx, cluster)
+	if err != nil {
+		return packer.TargetDefaults{}, err
+	}
+	return packer.TargetDefaults{Node: c.DefaultNode, Storage: c.DefaultStorage, Bridge: c.DefaultBridge}, nil
 }

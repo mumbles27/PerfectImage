@@ -64,6 +64,11 @@ type Image struct {
 	Communicator string    `yaml:"communicator" json:"communicator"`
 	DefaultApps  []string  `yaml:"default_apps" json:"default_apps,omitempty"`
 	Tags         []string  `yaml:"tags" json:"tags,omitempty"`
+	// Editions (windows only) lists install.wim edition names the build
+	// wizard offers for the windows_image_name variable; the first is the
+	// image's default. Leave it empty when the answer file's product key
+	// only fits one edition.
+	Editions []string `yaml:"editions,omitempty" json:"editions,omitempty"`
 	// Seed, when set, makes PerfectImage generate a small ISO per build and
 	// attach it to the build VM (variable seed_iso_file), so the installer
 	// reads its answers from a CD instead of Packer's HTTP server.
@@ -355,6 +360,10 @@ type InstallStep struct {
 	// VerifyScript exits 0 when the app is installed.
 	VerifyScript   string `json:"verify_script"`
 	RebootRequired bool   `json:"reboot_required"`
+	// Elevated runs a Windows step as a scheduled task with the build
+	// user's full token instead of over the WinRM logon (needed by APIs
+	// that refuse network logons, such as Windows Update).
+	Elevated bool `json:"elevated,omitempty"`
 }
 
 // Shells.

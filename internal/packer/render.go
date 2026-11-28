@@ -71,6 +71,9 @@ func Vars(img *catalog.Image, req BuildRequest, insecure bool, description strin
 	}
 	if img.OSFamily == catalog.Windows {
 		vars = append(vars, Var{"virtio_iso_file", pick(req.VirtioISOFile, img.ISO.VirtioFile)})
+		if req.Settings.WindowsEdition != "" {
+			vars = append(vars, Var{"windows_image_name", req.Settings.WindowsEdition})
+		}
 	}
 	return vars
 }
@@ -154,7 +157,13 @@ func Provisioners(family catalog.OSFamily, steps []catalog.InstallStep, indent s
 		if family == catalog.Windows {
 			w("provisioner %q {", "powershell")
 			w("  # %s (%s)", oneLine(s.Name), s.AppID)
-			w("  script = \"%s\"", script)
+			if s.Elevated {
+				w("  elevated_user     = var.build_username")
+				w("  elevated_password = var.build_password")
+				w("  script            = \"%s\"", script)
+			} else {
+				w("  script = \"%s\"", script)
+			}
 			w("}")
 			if s.RebootRequired {
 				w("provisioner %q {", "windows-restart")

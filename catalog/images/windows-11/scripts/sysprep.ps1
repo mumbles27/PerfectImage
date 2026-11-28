@@ -10,7 +10,27 @@ $ErrorActionPreference = 'Stop'
 $unattend = 'C:\Windows\Panther\unattend-generalize.xml'
 New-Item -ItemType Directory -Path (Split-Path $unattend) -Force | Out-Null
 
-@'
+# OS settings chosen in the build wizard (written by PerfectImage's generated
+# "OS settings" step). Generalization resets per-user and some machine
+# settings, so they are re-applied to every clone in the oobeSystem pass.
+$settingsFile = 'C:\Windows\Panther\perfectimage-settings.json'
+$tzXml = ''
+$intlXml = ''
+if (Test-Path $settingsFile) {
+    $s = Get-Content -Raw -Path $settingsFile | ConvertFrom-Json
+    $esc = { param($v) [System.Security.SecurityElement]::Escape([string]$v) }
+    if ($s.timezone) { $tzXml = "<TimeZone>$(& $esc $s.timezone)</TimeZone>" }
+    if ($s.locale -or $s.keyboard) {
+        $intlXml = '<component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">'
+        if ($s.keyboard) { $intlXml += "<InputLocale>$(& $esc $s.keyboard)</InputLocale>" }
+        if ($s.locale) { $intlXml += "<SystemLocale>$(& $esc $s.locale)</SystemLocale><UserLocale>$(& $esc $s.locale)</UserLocale>" }
+        $intlXml += '</component>'
+    }
+    Write-Host "==> Applying saved OS settings to clones: $($s | ConvertTo-Json -Compress)"
+    Remove-Item -Path $settingsFile -Force
+}
+
+$xml = @'
 <?xml version="1.0" encoding="utf-8"?>
 <unattend xmlns="urn:schemas-microsoft-com:unattend">
   <settings pass="specialize">
@@ -39,10 +59,14 @@ New-Item -ItemType Directory -Path (Split-Path $unattend) -Force | Out-Null
         <ProtectYourPC>3</ProtectYourPC>
         <SkipMachineOOBE>true</SkipMachineOOBE>
       </OOBE>
+      <!--PI:TIMEZONE-->
     </component>
+    <!--PI:INTERNATIONAL-->
   </settings>
 </unattend>
-'@ | Set-Content -Path $unattend -Encoding UTF8
+'@
+$xml.Replace('<!--PI:TIMEZONE-->', $tzXml).Replace('<!--PI:INTERNATIONAL-->', $intlXml) |
+    Set-Content -Path $unattend -Encoding UTF8
 
 # Sysprep refuses to run while these are in a bad state.
 Stop-Service -Name WMPNetworkSvc -ErrorAction SilentlyContinue

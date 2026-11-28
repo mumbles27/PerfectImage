@@ -22,3 +22,8 @@ default_apps:
 tags:
   - windows
   - windows-server
+editions:
+  - Windows Server 2025 SERVERSTANDARD
+  - Windows Server 2025 SERVERDATACENTER
+  - Windows Server 2025 SERVERSTANDARDCORE
+  - Windows Server 2025 SERVERDATACENTERCORE

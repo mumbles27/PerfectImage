@@ -22,3 +22,8 @@ default_apps:
 tags:
   - windows
   - windows-server
+editions:
+  - Windows Server 2022 SERVERSTANDARD
+  - Windows Server 2022 SERVERDATACENTER
+  - Windows Server 2022 SERVERSTANDARDCORE
+  - Windows Server 2022 SERVERDATACENTERCORE

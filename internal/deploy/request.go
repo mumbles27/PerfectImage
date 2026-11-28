@@ -10,6 +10,7 @@ import (
 	"net/netip"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/mumbles27/PerfectImage/internal/secrets"
 )
@@ -66,6 +67,11 @@ type Request struct {
 
 	Apps             []string `json:"apps,omitempty"`
 	CleanupOnFailure bool     `json:"cleanup_on_failure"`
+
+	// PostScript runs in the guest (bash as root on Linux, PowerShell as
+	// SYSTEM on Windows) after the apps. It is stored with the job, so it
+	// must not contain secrets.
+	PostScript string `json:"post_script,omitempty"`
 }
 
 // LinuxOptions are cloud-init settings.
@@ -232,6 +238,12 @@ func (r *Request) Validate() error {
 		if !appIDRe.MatchString(a) {
 			add("invalid app id %q", a)
 		}
+	}
+	switch {
+	case len(r.PostScript) > maxScriptBytes:
+		add("post-deploy script is larger than %d bytes", maxScriptBytes)
+	case !utf8.ValidString(r.PostScript) || strings.ContainsRune(r.PostScript, 0):
+		add("post-deploy script must be UTF-8 text")
 	}
 	return errors.Join(errs...)
 }

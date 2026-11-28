@@ -44,6 +44,7 @@ var (
 	diskRE      = regexp.MustCompile(`^[1-9][0-9]*[GMT]$`)
 	pveNameRE   = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$`)
 	tagRE       = regexp.MustCompile(`^[a-z0-9][a-z0-9_.+-]{0,63}$`)
+	editionRE   = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9 ().-]{0,79}$`)
 	destRE      = regexp.MustCompile(`^/(opt|usr/local)/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$`)
 	relPathRE   = regexp.MustCompile(`^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$`)
 	installArgs = regexp.MustCompile("^[^\r\n`$;|&<>]*$")
@@ -334,6 +335,12 @@ func validateImage(img *Image, root *yaml.Node, file string) []Problem {
 	}
 	for i, t := range img.Tags {
 		c.match(k("tags", i), "tag", t, tagRE)
+	}
+	if len(img.Editions) > 0 && img.OSFamily != Windows {
+		c.at(k("editions"), "editions only apply to windows images")
+	}
+	for i, e := range img.Editions {
+		c.match(k("editions", i), "edition", e, editionRE)
 	}
 	if s := img.Seed; s != nil {
 		if c.required(k("seed", "label"), "seed.label", s.Label) {

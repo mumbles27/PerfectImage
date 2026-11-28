@@ -36,6 +36,10 @@ type BuildRequest struct {
 	SkipDefaultApps bool   `json:"skip_default_apps,omitempty"`
 	TemplateName    string `json:"template_name"`
 	VMID            int    `json:"vm_id,omitempty"`
+	// Settings and PostScript are optional guest customizations (see
+	// options.go). They are applied around the app steps.
+	Settings   OSSettings `json:"settings,omitzero"`
+	PostScript PostScript `json:"post_script,omitzero"`
 }
 
 var (
@@ -60,6 +64,8 @@ func (r *BuildRequest) Check(c *catalog.Catalog) (*catalog.Image, []catalog.Inst
 	if !ok {
 		fe["image_id"] = "Unknown image."
 	}
+	r.normalizeOptions()
+	r.checkOptions(img, fe)
 	if !pveNameRE.MatchString(r.Cluster) {
 		fe["cluster"] = "Choose a cluster."
 	}

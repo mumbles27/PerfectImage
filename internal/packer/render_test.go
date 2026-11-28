@@ -53,6 +53,14 @@ func TestRenderGolden(t *testing.T) {
 			VMID: 9100, Apps: []string{"docker", "7zip"}, ISOFile: "local:iso/Win11_24H2.iso"}},
 		{"rocky-iso-file", BuildRequest{ImageID: "rocky-9", Cluster: "lab", Node: "pve1", TemplateName: "rocky-golden",
 			SkipDefaultApps: true, ISOFile: "local:iso/rocky.iso"}},
+		{"ubuntu-options", BuildRequest{ImageID: "ubuntu-24.04", Cluster: "lab", Node: "pve1", TemplateName: "ubuntu-opts",
+			Apps:       []string{"git"},
+			Settings:   OSSettings{Timezone: "America/Chicago", Locale: "en-GB", Keyboard: "gb", Updates: true},
+			PostScript: PostScript{Script: "echo baseline > /etc/motd\n", Reboot: true}}},
+		{"windows-server-2025-options", BuildRequest{ImageID: "windows-server-2025", Cluster: "lab", Node: "pve1", TemplateName: "ws2025-opts",
+			Settings: OSSettings{Timezone: "Central Standard Time", Locale: "en-US", Updates: true,
+				WindowsEdition: "Windows Server 2025 SERVERDATACENTER"},
+			PostScript: PostScript{Script: "Write-Host baseline\n"}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -62,6 +70,7 @@ func TestRenderGolden(t *testing.T) {
 			}
 			dir := filepath.Join(t.TempDir(), "w")
 			vars := Vars(img, tt.req, true, "golden build")
+			steps = tt.req.Steps(img, steps)
 			if err := Render(dir, img, steps, vars); err != nil {
 				t.Fatal(err)
 			}
@@ -115,9 +124,16 @@ func TestRenderedTemplatesValidate(t *testing.T) {
 				}
 			}
 			apps = append(apps, "docker") // reboot_required on Windows and Linux paths
-			req := BuildRequest{ImageID: img.ID, Cluster: "lab", Node: "pve1", TemplateName: "validate", Apps: apps}
+			// Every optional step kind: settings, updates (elevated on
+			// Windows), post-install script with reboot.
+			req := BuildRequest{ImageID: img.ID, Cluster: "lab", Node: "pve1", TemplateName: "validate", Apps: apps,
+				Settings:   OSSettings{Timezone: "UTC", Locale: "en-US", Updates: true},
+				PostScript: PostScript{Script: "echo validate", Reboot: true}}
 			if img.OSFamily == catalog.Windows {
 				req.ISOFile = "local:iso/fake.iso"
+				if len(img.Editions) > 0 {
+					req.Settings.WindowsEdition = img.Editions[len(img.Editions)-1]
+				}
 			}
 			im, steps, err := req.Check(c)
 			if err != nil {
@@ -128,6 +144,7 @@ func TestRenderedTemplatesValidate(t *testing.T) {
 			if im.Seed != nil { // the service adds this after uploading the seed ISO
 				vars = append(vars, Var{"seed_iso_file", "local:iso/pi-seed-validate.iso"})
 			}
+			steps = req.Steps(im, steps)
 			if err := Render(dir, im, steps, vars); err != nil {
 				t.Fatal(err)
 			}

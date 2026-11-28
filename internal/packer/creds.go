@@ -31,6 +31,22 @@ type Inventory interface {
 	Storages(ctx context.Context, cluster, node string) ([]string, error)
 }
 
+// MediaInventory is optionally implemented by the ClusterCreds provider so
+// the build wizard can offer bridges, ISO storages and ISO files, and
+// prefill the cluster's saved defaults.
+type MediaInventory interface {
+	Bridges(ctx context.Context, cluster, node string) ([]string, error)
+	ISOStorages(ctx context.Context, cluster, node string) ([]string, error)
+	// ISOs returns volume ids ("local:iso/name.iso") on storage.
+	ISOs(ctx context.Context, cluster, node, storage string) ([]string, error)
+	Defaults(ctx context.Context, cluster string) (TargetDefaults, error)
+}
+
+// TargetDefaults are a cluster's saved defaults (any field may be empty).
+type TargetDefaults struct {
+	Node, Storage, Bridge string
+}
+
 // ErrNoCreds is returned when no ClusterCreds provider is installed.
 var ErrNoCreds = errors.New("packer: no Proxmox credential provider installed (packer.SetClusterCreds)")
 

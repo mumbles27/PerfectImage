@@ -235,6 +235,15 @@ func (s *Service) run(ctx context.Context, req BuildRequest, workdir string, log
 	} else {
 		log.Printf("    apps:     none")
 	}
+	if st := req.Settings; st.Timezone != "" || st.Locale != "" || st.Keyboard != "" || st.WindowsEdition != "" {
+		log.Printf("    settings: timezone=%q locale=%q keyboard=%q edition=%q", st.Timezone, st.Locale, st.Keyboard, st.WindowsEdition)
+	}
+	if req.Settings.Updates {
+		log.Printf("    updates:  install all available OS updates")
+	}
+	if req.PostScript.Script != "" {
+		log.Printf("    post-install script: %d bytes (reboot after: %t)", len(req.PostScript.Script), req.PostScript.Reboot)
+	}
 
 	cp := s.creds()
 	if cp == nil {
@@ -276,7 +285,7 @@ func (s *Service) run(ctx context.Context, req BuildRequest, workdir string, log
 		defer cleanup()
 		vars = append(vars, Var{"seed_iso_file", volid})
 	}
-	if err := Render(workdir, img, steps, vars); err != nil {
+	if err := Render(workdir, img, req.Steps(img, steps), vars); err != nil {
 		return nil, "", fmt.Errorf("render workdir: %w", err)
 	}
 	log.Printf("==> rendered workdir %s", workdir)

@@ -134,5 +134,12 @@
     <label class="check"><input type="checkbox" name="apps" value="{{.ID}}"{{if $f.HasApp .ID}} checked{{end}}> {{.Name}}{{with .Description}} <span class="hint">{{.}}</span>{{end}}</label>
   {{end}}</div>{{else}}<p class="muted">No apps are available for {{.OS}} yet.</p>{{end}}
 </fieldset>
+<fieldset>
+  <legend>Post-deploy script</legend>
+  <label class="wide">{{if eq .OS "windows"}}PowerShell (runs as SYSTEM){{else}}Bash (runs as root){{end}}, optional
+    <textarea name="post_script" rows="6" spellcheck="false" placeholder="{{if eq .OS "windows"}}Set-ItemProperty -Path 'HKLM:\SOFTWARE\Contoso' -Name Role -Value web{{else}}systemctl enable --now nginx{{end}}">{{$f.PostScript}}</textarea>
+    <span class="hint">Runs after the apps through the guest agent; a non-zero exit code fails the deployment. Stored with the job, so do not put secrets in it.</span>
+  </label>
+</fieldset>
 {{end}}
 {{end}}

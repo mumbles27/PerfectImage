@@ -7,17 +7,28 @@
 {{if .Errors}}<div class="problems" role="alert"><strong>Please fix the highlighted fields.</strong>{{with index .Errors "apps"}}<ul><li>{{.}}</li></ul>{{end}}</div>{{end}}
 <form id="wizard" class="wizard" method="post" action="/build">
   {{with $.CSRFToken}}<input type="hidden" name="csrf_token" value="{{.}}">{{end}}
+  <input type="hidden" name="auto_name" value="{{.AutoName}}">
+  {{with .InventoryError}}<div class="problems" role="alert">{{.}} Lists below may be incomplete; you can still type values.</div>{{end}}
   <fieldset>
-    <legend>1. Image</legend>
+    <legend>1. Operating system</legend>
     <div class="row">
       <label>Image
-        <select name="image" hx-get="/build" hx-target="#wizard" hx-select="#wizard" hx-swap="outerHTML" hx-include="[name=cluster],[name=node]">
+        <select name="image" hx-post="/build/form" hx-trigger="change" hx-target="#wizard" hx-select="#wizard" hx-swap="outerHTML" hx-include="#wizard" hx-indicator="#wizard-loading">
           {{range .Images}}<option value="{{.ID}}"{{if eq .ID $.Data.Req.ImageID}} selected{{end}}>{{.Name}}</option>{{end}}
         </select>
         {{with index .Errors "image_id"}}<span class="error-text">{{.}}</span>{{end}}
       </label>
+      {{with .Image}}{{if .Editions}}
+      <label>Edition
+        <select name="windows_edition">
+          <option value="">{{index .Editions 0}} (image default)</option>
+          {{range .Editions}}<option value="{{.}}"{{if eq . $.Data.Req.Settings.WindowsEdition}} selected{{end}}>{{.}}</option>{{end}}
+        </select>
+        {{with index $.Data.Errors "windows_edition"}}<span class="error-text">{{.}}</span>{{end}}
+      </label>
+      {{end}}{{end}}
     </div>
-    {{with .Image}}<p class="hint">{{.OSFamily}} · {{.OS}} {{.Version}} · {{.Firmware}}{{if .TPM}} + TPM{{end}} · <a href="/catalog/images/{{.ID}}">details</a></p>{{end}}
+    {{with .Image}}<p class="hint">{{.OSFamily}} · {{.OS}} {{.Version}} · {{.Firmware}}{{if .TPM}} + TPM{{end}} · <a href="/catalog/images/{{.ID}}">details</a>{{with .Description}}<br>{{.}}{{end}}</p>{{end}}
   </fieldset>
 
   <fieldset>
@@ -25,33 +36,50 @@
     <div class="row">
       <label>Cluster
         {{if .Clusters}}
-        <select name="cluster">{{range .Clusters}}<option value="{{.}}"{{if eq . $.Data.Req.Cluster}} selected{{end}}>{{.}}</option>{{end}}</select>
-        {{else}}<input name="cluster" value="{{.Req.Cluster}}" required placeholder="cluster name">{{end}}
+        <select name="cluster" hx-post="/build/form" hx-trigger="change" hx-target="#wizard" hx-select="#wizard" hx-swap="outerHTML" hx-include="#wizard" hx-indicator="#wizard-loading">{{range .Clusters}}<option value="{{.}}"{{if eq . $.Data.Req.Cluster}} selected{{end}}>{{.}}</option>{{end}}</select>
+        {{else}}<input name="cluster" value="{{.Req.Cluster}}" required placeholder="cluster name">
+        <span class="hint">No clusters yet: <a href="/settings/proxmox">add one</a>.</span>{{end}}
         {{with index .Errors "cluster"}}<span class="error-text">{{.}}</span>{{end}}
       </label>
       <label>Node
-        <input name="node" value="{{.Req.Node}}" required list="pi-nodes" placeholder="pve1" autocomplete="off">
-        <datalist id="pi-nodes">{{range .Nodes}}<option value="{{.}}">{{end}}</datalist>
+        {{if .Nodes}}
+        <select name="node" hx-post="/build/form" hx-trigger="change" hx-target="#wizard" hx-select="#wizard" hx-swap="outerHTML" hx-include="#wizard" hx-indicator="#wizard-loading">{{range .Nodes}}<option value="{{.}}"{{if eq . $.Data.Req.Node}} selected{{end}}>{{.}}</option>{{end}}</select>
+        {{else}}<input name="node" value="{{.Req.Node}}" required placeholder="pve1" autocomplete="off">{{end}}
         {{with index .Errors "node"}}<span class="error-text">{{.}}</span>{{end}}
       </label>
       <label>Disk storage
-        <input name="storage" value="{{.Req.Storage}}" list="pi-storages" placeholder="{{with .Image}}{{.Resources.Storage}}{{end}}">
-        <datalist id="pi-storages">{{range .Storages}}<option value="{{.}}">{{end}}</datalist>
+        {{if .Storages}}
+        <select name="storage">
+          <option value="">{{with .Image}}{{.Resources.Storage}}{{end}} (image default)</option>
+          {{range .Storages}}<option value="{{.}}"{{if eq . $.Data.Req.Storage}} selected{{end}}>{{.}}</option>{{end}}
+        </select>
+        {{else}}<input name="storage" value="{{.Req.Storage}}" placeholder="{{with .Image}}{{.Resources.Storage}}{{end}}">{{end}}
         {{with index .Errors "storage"}}<span class="error-text">{{.}}</span>{{end}}
       </label>
-      <label>ISO storage
-        <input name="iso_storage" value="{{.Req.ISOStorage}}" placeholder="local">
-        {{with index .Errors "iso_storage"}}<span class="error-text">{{.}}</span>{{end}}
-      </label>
       <label>Bridge
-        <input name="bridge" value="{{.Req.Bridge}}" placeholder="{{with .Image}}{{.Resources.Bridge}}{{end}}">
+        {{if .Bridges}}
+        <select name="bridge">
+          <option value="">{{with .Image}}{{.Resources.Bridge}}{{end}} (image default)</option>
+          {{range .Bridges}}<option value="{{.}}"{{if eq . $.Data.Req.Bridge}} selected{{end}}>{{.}}</option>{{end}}
+        </select>
+        {{else}}<input name="bridge" value="{{.Req.Bridge}}" placeholder="{{with .Image}}{{.Resources.Bridge}}{{end}}">{{end}}
         {{with index .Errors "bridge"}}<span class="error-text">{{.}}</span>{{end}}
+      </label>
+      <label>ISO storage
+        {{if .ISOStorages}}
+        <select name="iso_storage">
+          <option value="">local (default)</option>
+          {{range .ISOStorages}}<option value="{{.}}"{{if eq . $.Data.Req.ISOStorage}} selected{{end}}>{{.}}</option>{{end}}
+        </select>
+        {{else}}<input name="iso_storage" value="{{.Req.ISOStorage}}" placeholder="local">{{end}}
+        <span class="hint">Where the generated answer and seed CDs are uploaded.</span>
+        {{with index .Errors "iso_storage"}}<span class="error-text">{{.}}</span>{{end}}
       </label>
     </div>
   </fieldset>
 
   <fieldset>
-    <legend>3. Resources and media</legend>
+    <legend>3. Hardware and install media</legend>
     <div class="row">
       <label>Cores <input name="cores" type="number" min="1" max="256" value="{{if .Req.Cores}}{{.Req.Cores}}{{end}}" placeholder="{{with .Image}}{{.Resources.Cores}}{{end}}">
         {{with index .Errors "cores"}}<span class="error-text">{{.}}</span>{{end}}</label>
@@ -59,18 +87,56 @@
         {{with index .Errors "memory"}}<span class="error-text">{{.}}</span>{{end}}</label>
       <label>Disk <input name="disk" value="{{.Req.Disk}}" placeholder="{{with .Image}}{{.Resources.Disk}}{{end}}">
         {{with index .Errors "disk"}}<span class="error-text">{{.}}</span>{{end}}</label>
-      <label>Install ISO <input name="iso_file" value="{{.Req.ISOFile}}" placeholder="{{with .Image}}{{if .ISO.File}}{{.ISO.File}}{{else}}download from {{.OS}} mirror{{end}}{{end}}">
+      <label>Install ISO
+        {{if .HasMedia}}
+        <select name="iso_file">
+          <option value="">{{with .Image}}{{if .ISO.File}}{{.ISO.File}} (image default){{else}}Download from the {{.OS}} mirror{{end}}{{end}}</option>
+          {{range .ISOs}}<option value="{{.}}"{{if eq . $.Data.Req.ISOFile}} selected{{end}}>{{.}}</option>{{end}}
+        </select>
+        {{else}}<input name="iso_file" value="{{.Req.ISOFile}}" placeholder="{{with .Image}}{{if .ISO.File}}{{.ISO.File}}{{else}}download from {{.OS}} mirror{{end}}{{end}}">{{end}}
         {{with index .Errors "iso_file"}}<span class="error-text">{{.}}</span>{{end}}</label>
-      {{with .Image}}{{if eq (print .OSFamily) "windows"}}
-      <label>virtio-win ISO <input name="virtio_iso_file" value="{{$.Data.Req.VirtioISOFile}}" placeholder="{{.ISO.VirtioFile}}">
-        {{with index $.Data.Errors "virtio_iso_file"}}<span class="error-text">{{.}}</span>{{end}}</label>
-      {{end}}{{end}}
+      {{if .IsWindows}}
+      <label>virtio-win ISO
+        {{if .HasMedia}}
+        <select name="virtio_iso_file">
+          <option value="">{{with .Image}}{{.ISO.VirtioFile}}{{end}} (image default)</option>
+          {{range .ISOs}}<option value="{{.}}"{{if eq . $.Data.Req.VirtioISOFile}} selected{{end}}>{{.}}</option>{{end}}
+        </select>
+        {{else}}<input name="virtio_iso_file" value="{{.Req.VirtioISOFile}}" placeholder="{{with .Image}}{{.ISO.VirtioFile}}{{end}}">{{end}}
+        {{with index .Errors "virtio_iso_file"}}<span class="error-text">{{.}}</span>{{end}}</label>
+      {{end}}
     </div>
-    <p class="hint">Leave fields empty to use the image defaults shown as placeholders.</p>
+    <p class="hint">Empty fields use the image defaults shown.</p>
   </fieldset>
 
   <fieldset>
-    <legend>4. Apps</legend>
+    <legend>4. OS settings</legend>
+    <div class="row">
+      <label>Time zone
+        <input name="timezone" value="{{.Req.Settings.Timezone}}" list="pi-timezones" autocomplete="off" placeholder="{{if .IsWindows}}W. Europe Standard Time{{else}}Europe/Berlin{{end}}">
+        <datalist id="pi-timezones">{{range .Timezones}}<option value="{{.}}">{{end}}</datalist>
+        <span class="hint">{{if .IsWindows}}Windows time zone id (<code>tzutil /l</code>).{{else}}IANA name, e.g. UTC or America/Chicago.{{end}}</span>
+        {{with index .Errors "timezone"}}<span class="error-text">{{.}}</span>{{end}}
+      </label>
+      <label>Locale
+        <input name="locale" value="{{.Req.Settings.Locale}}" list="pi-locales" autocomplete="off" placeholder="en-US">
+        <datalist id="pi-locales">{{range .Locales}}<option value="{{.}}">{{end}}</datalist>
+        {{with index .Errors "locale"}}<span class="error-text">{{.}}</span>{{end}}
+      </label>
+      <label>Keyboard
+        <input name="keyboard" value="{{.Req.Settings.Keyboard}}" list="pi-keyboards" autocomplete="off" placeholder="{{if .IsWindows}}en-US{{else}}us{{end}}">
+        <datalist id="pi-keyboards">{{range .Keyboards}}<option value="{{.}}">{{end}}</datalist>
+        <span class="hint">{{if .IsWindows}}Input locale, e.g. de-DE or 0407:00000407.{{else}}Layout with an optional variant, e.g. us-intl.{{end}}</span>
+        {{with index .Errors "keyboard"}}<span class="error-text">{{.}}</span>{{end}}
+      </label>
+    </div>
+    <label class="checks"><span><input type="checkbox" name="os_updates" value="1"{{if .Req.Settings.Updates}} checked{{end}}>
+      Install all available OS updates before the apps{{if .IsWindows}} (Windows Update: up to 3 passes with restarts, which can add an hour or more){{else}} (apt/dnf upgrade, then a reboot){{end}}</span></label>
+    <p class="hint">Empty fields keep the installer defaults.{{if .IsWindows}} Settings are carried through Sysprep to every clone.{{end}}</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>5. Apps</legend>
     {{if .Bundles}}<p><strong>Bundles</strong></p>
     <div class="checks">{{range .Bundles}}<label title="{{range $i, $a := .Apps}}{{if $i}}, {{end}}{{$a}}{{end}}"><input type="checkbox" name="bundles" value="{{.ID}}"{{if .Checked}} checked{{end}}> {{.Name}}</label>{{end}}</div>{{end}}
     <p><strong>Apps</strong></p>
@@ -79,7 +145,17 @@
   </fieldset>
 
   <fieldset>
-    <legend>5. Template</legend>
+    <legend>6. Post-install script</legend>
+    <label>{{if .IsWindows}}PowerShell{{else}}Bash{{end}} script (optional)
+      <textarea name="post_script" class="script" rows="8" spellcheck="false" placeholder="{{if .IsWindows}}# Runs as the build administrator after the apps, before Sysprep.{{else}}# Runs as root after the apps, before cleanup.{{end}}">{{.Req.PostScript.Script}}</textarea>
+      {{with index .Errors "post_script"}}<span class="error-text">{{.}}</span>{{end}}
+    </label>
+    <label class="checks"><span><input type="checkbox" name="post_script_reboot" value="1"{{if .Req.PostScript.Reboot}} checked{{end}}> Restart the guest after the script</span></label>
+    <p class="hint">A non-zero exit code fails the build. The script is saved with the build record and shown on its page, so do not put secrets in it.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>7. Template</legend>
     <div class="row">
       <label>Template name <input name="template_name" value="{{.Req.TemplateName}}" required>
         {{with index .Errors "template_name"}}<span class="error-text">{{.}}</span>{{end}}</label>
@@ -87,7 +163,7 @@
         {{with index .Errors "vm_id"}}<span class="error-text">{{.}}</span>{{end}}</label>
     </div>
   </fieldset>
-  <div class="actions"><button type="submit">Start build</button></div>
+  <div class="actions"><button type="submit">Start build</button><span id="wizard-loading" class="htmx-indicator muted">Loading cluster resources…</span></div>
 </form>
 {{end}}
 

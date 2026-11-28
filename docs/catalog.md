@@ -80,7 +80,16 @@ resources: {cores: 2, memory: 4096, disk: 32G, storage: local-lvm, bridge: vmbr0
 communicator: ssh              # ssh (linux) | winrm (windows)
 default_apps: [curl, htop]     # installed unless the build skips them
 tags: [linux, ubuntu]          # become Proxmox tags (perfectimage is always added)
+# editions:                    # windows only: install.wim edition names offered
+#   - Windows Server 2025 SERVERSTANDARD       # in the build wizard (first = default)
+#   - Windows Server 2025 SERVERDATACENTERCORE
 ```
+
+List `editions` only when the image's answer file works for all of them.
+`windows-11` leaves it out because its answer file carries the generic
+Windows 11 Pro installation key, which Setup rejects for other editions.
+Check the names in your ISO with
+`dism /Get-WimInfo /WimFile:D:\sources\install.wim`.
 
 Windows ISOs are licensed media, so you upload them to Proxmox storage
 yourself and either set `iso.iso_file` or enter the file in the build wizard.

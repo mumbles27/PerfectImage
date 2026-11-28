@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -110,7 +111,8 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	if filepath.Dir(archive) != e.cfg.Backup.Dir || !ValidName(filepath.Base(archive)) {
 		t.Fatalf("archive path %s", archive)
 	}
-	if fi, _ := os.Stat(archive); fi.Mode().Perm() != 0o600 {
+	// Windows has no Unix permission bits (ACLs protect the data dir).
+	if fi, _ := os.Stat(archive); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("archive mode %v", fi.Mode())
 	}
 	raw, _ := os.ReadFile(archive)
@@ -152,8 +154,10 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	if got := setting(t, e.cfg, "test.plain"); got != "original" {
 		t.Fatalf("setting after restore = %q", got)
 	}
+	// On Windows the key file is a DPAPI blob, which differs on every
+	// protect call; the decrypt check below proves the key was restored.
 	newKey, _ := os.ReadFile(KeyFile(e.cfg))
-	if !bytes.Equal(newKey, oldKey) {
+	if runtime.GOOS != "windows" && !bytes.Equal(newKey, oldKey) {
 		t.Fatal("master key not restored")
 	}
 	sealer, err := secrets.OpenSealer(KeyFile(e.cfg))

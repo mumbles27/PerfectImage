@@ -267,6 +267,13 @@ func TestDeployFailures(t *testing.T) {
 			wantHistory: "failed:10.0.10.25",
 		},
 		{
+			name:        "post-deploy script fails with cleanup",
+			mut:         func(r *Request, f *fakePVE) { r.PostScript = "exit 3" },
+			wantErr:     "post-deploy script exited with code 3",
+			wantCalls:   []string{"Stop 120", "DeleteVM 120"},
+			wantHistory: "failed:10.0.10.25:cleaned",
+		},
+		{
 			name:        "unknown app fails before clone",
 			mut:         func(r *Request, f *fakePVE) { r.Apps = []string{"nope"} },
 			wantErr:     "unknown app",
@@ -391,6 +398,8 @@ func TestRequestValidate(t *testing.T) {
 		{"keys without user", func(r *Request) { r.Linux.User = "" }, "need a cloud-init user"},
 		{"bad storage", func(r *Request) { r.Storage = "a b" }, "invalid storage"},
 		{"bad app id", func(r *Request) { r.Apps = []string{"../x"} }, "invalid app id"},
+		{"post script too big", func(r *Request) { r.PostScript = strings.Repeat("x", maxScriptBytes+1) }, "post-deploy script is larger"},
+		{"post script binary", func(r *Request) { r.PostScript = "echo\x00" }, "post-deploy script must be UTF-8"},
 		{"windows ok", func(r *Request) {
 			r.OS, r.Linux = OSWindows, LinuxOptions{}
 			r.Windows = WindowsOptions{Hostname: "WEB01", Domain: "corp.example.com", DomainUser: "joiner@corp.example.com", DomainPassword: sealed}
@@ -514,5 +523,23 @@ func TestDeployJob(t *testing.T) {
 	if err != nil || len(list) != 1 || list[0].Status != StatusSucceeded || list[0].VMID != 120 ||
 		list[0].IPAddresses != "10.0.10.25" || list[0].FinishedAt == nil || list[0].Apps[0] != "nginx" {
 		t.Fatalf("history = %+v, %v", list, err)
+	}
+}
+
+func TestDeployPostScript(t *testing.T) {
+	f := newFakePVE()
+	r, _, _ := newRunner(t, f)
+	log := &memLog{}
+	req := linuxRequest()
+	req.PostScript = "systemctl enable --now nginx\n"
+	if _, err := r.Deploy(context.Background(), "job1", "alice", req, log); err != nil {
+		t.Fatalf("Deploy: %v\n%s", err, log)
+	}
+	// install, verify, then the post-deploy script (after the apps).
+	if len(f.execs) != 3 || strings.Join(f.execs[2].Cmd, " ") != "/bin/bash -s" || f.execs[2].Input != req.PostScript {
+		t.Fatalf("execs = %+v", f.execs)
+	}
+	if !strings.Contains(log.String(), "[8] Running the post-deploy script") {
+		t.Fatalf("log:\n%s", log)
 	}
 }
