@@ -16,5 +16,6 @@ echo "==> Configuring cloud-init for Proxmox (NoCloud/ConfigDrive)"
 cat >/etc/cloud/cloud.cfg.d/99-pve.cfg <<'CFG'
 datasource_list: [NoCloud, ConfigDrive]
 CFG
-rm -f /etc/cloud/cloud.cfg.d/99-installer.cfg /etc/cloud/cloud.cfg.d/subiquity-disable-cloudinit-networking.cfg
-rm -f /etc/netplan/00-installer-config.yaml /etc/netplan/50-cloud-init.yaml
+# The installer's network config stays until cleanup.sh: provisioners that
+# reboot the guest (OS updates, apps with reboot_required) need DHCP to come
+# back so Packer can reconnect over SSH.

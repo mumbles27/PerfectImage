@@ -11,6 +11,12 @@ rm -rf /var/lib/apt/lists/*
 echo "==> Resetting cloud-init"
 cloud-init clean --logs --seed
 
+echo "==> Handing networking to cloud-init (Proxmox ipconfig0 / DHCP on clones)"
+# Done here, not in base.sh: the build VM must keep its network across the
+# reboots of earlier provisioners.
+rm -f /etc/cloud/cloud.cfg.d/99-installer.cfg /etc/cloud/cloud.cfg.d/subiquity-disable-cloudinit-networking.cfg
+rm -f /etc/netplan/00-installer-config.yaml /etc/netplan/50-cloud-init.yaml
+
 echo "==> Removing SSH host keys (regenerated on first boot)"
 rm -f /etc/ssh/ssh_host_*
 
