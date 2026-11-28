@@ -56,6 +56,27 @@ func (fakeInventory) Defaults(context.Context, string) (TargetDefaults, error) {
 	return TargetDefaults{Node: "pve2", Storage: "local-zfs", Bridge: "vmbr0"}, nil
 }
 
+// blindInventory reaches the cluster but sees nothing on the node, like a
+// privilege-separated token without ACLs.
+type blindInventory struct{ fakeInventory }
+
+func (blindInventory) Storages(context.Context, string, string) ([]string, error)    { return nil, nil }
+func (blindInventory) Bridges(context.Context, string, string) ([]string, error)     { return nil, nil }
+func (blindInventory) ISOStorages(context.Context, string, string) ([]string, error) { return nil, nil }
+
+func TestWizardTokenWithoutPermissions(t *testing.T) {
+	_, ts := newWebEnv(t, blindInventory{})
+	code, body := get(t, ts, "/build", rbac.RoleBuilder)
+	if code != 200 || !strings.Contains(body, "can see no storages, bridges or ISOs on pve2") ||
+		!strings.Contains(body, `<input name="storage"`) {
+		t.Fatalf("permission hint missing (%d)", code)
+	}
+	_, ok := newWebEnv(t, fakeInventory{})
+	if _, body := get(t, ok, "/build", rbac.RoleBuilder); strings.Contains(body, "can see no storages") {
+		t.Fatal("hint shown for a token that sees resources")
+	}
+}
+
 // newWebEnv is a build service whose jobs are queued but never run, so the
 // wizard can be tested on every OS (no fake packer needed).
 func newWebEnv(t *testing.T, creds ClusterCreds) (*Service, *httptest.Server) {

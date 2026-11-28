@@ -240,6 +240,14 @@ func (m *module) fillTargets(ctx context.Context, d *wizardData) {
 		}
 		d.ISOs = append(d.ISOs, isos...)
 	}
+	// PVE filters list results by permission instead of failing, so an
+	// under-privileged (e.g. privilege-separated, ACL-less) token sees a
+	// reachable node with nothing on it.
+	if d.InventoryError == "" && len(d.Storages) == 0 && len(d.Bridges) == 0 && len(d.ISOStorages) == 0 {
+		d.InventoryError = fmt.Sprintf("Cluster %s answered, but its API token can see no storages, bridges or ISOs on %s. "+
+			"The token probably lacks permissions (Datastore.Audit, Sys.Audit, SDN.Use; with privilege separation the token needs its own ACLs). "+
+			"See docs/proxmox.md, section 1.4.", d.Req.Cluster, d.Req.Node)
+	}
 	if img := d.Image; img != nil {
 		if d.Req.Storage == "" && !slices.Contains(d.Storages, img.Resources.Storage) && slices.Contains(d.Storages, defs.Storage) {
 			d.Req.Storage = defs.Storage
